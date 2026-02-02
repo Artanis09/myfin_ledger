@@ -1,0 +1,36 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  flex: 1;
+  text-align: center;
+}
+
+.navBtn {
+  background: none;
+  border: none;
+  padding: 8px;
+  color: var(--text-primary);
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.navBtn:active {
+  background: var(--bg-tertiary);
+}
+
+.rightAction {
+  display: flex;
+  align-items: center;
+}

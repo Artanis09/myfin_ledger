@@ -1,0 +1,150 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg-secondary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.header h1 {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.backBtn, .smsBtn {
+  background: none;
+  border: none;
+  padding: 8px;
+  color: var(--text-primary);
+  border-radius: 8px;
+}
+
+.backBtn:active, .smsBtn:active {
+  background: var(--bg-tertiary);
+}
+
+.smsSection {
+  padding: 16px 20px;
+  background: var(--bg-tertiary);
+}
+
+.smsInput {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  resize: none;
+}
+
+.parseBtn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form {
+  padding: 20px;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.formGroup input,
+.formGroup select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.checkboxLabel {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkboxLabel input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent-color);
+}
+
+.installmentFields {
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.installmentFields .formGroup {
+  margin-bottom: 12px;
+}
+
+.installmentFields .formGroup:last-child {
+  margin-bottom: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.submitBtn {
+  flex: 1;
+  padding: 16px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.deleteBtn {
+  padding: 16px 24px;
+  background: var(--bg-tertiary);
+  color: var(--danger-color, #ef4444);
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.submitBtn:active, .deleteBtn:active {
+  opacity: 0.8;
+}

@@ -1,0 +1,111 @@
+.container {
+  padding: 20px;
+  background: var(--bg-secondary);
+}
+
+.circles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.circleWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.circleSvg {
+  width: 80px;
+  height: 80px;
+  transform: rotate(-90deg);
+}
+
+.circleBg {
+  fill: none;
+  stroke: var(--bg-tertiary);
+  stroke-width: 3;
+}
+
+.circleIncome {
+  fill: none;
+  stroke: var(--income-color);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.5s ease;
+}
+
+.circleExpense {
+  fill: none;
+  stroke: var(--expense-color);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.5s ease;
+}
+
+.circleText {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.percent {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+.balanceBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 16px;
+}
+
+.balanceLabel {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.balanceAmount {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.balanceAmount.negative {
+  color: var(--expense-color);
+}
+
+.amounts {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+}
+
+.amountItem {
+  text-align: center;
+}
+
+.amountValue {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.amountValue.income {
+  color: var(--income-color);
+}
+
+.amountValue.expense {
+  color: var(--expense-color);
+}

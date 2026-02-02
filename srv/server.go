@@ -3,12 +3,11 @@ package srv
 import (
 	"database/sql"
 	"fmt"
-	"html/template"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 
 	"srv.exe.dev/db"
@@ -17,7 +16,6 @@ import (
 type Server struct {
 	DB           *sql.DB
 	Hostname     string
-	TemplatesDir string
 	StaticDir    string
 }
 
@@ -25,9 +23,8 @@ func New(dbPath, hostname string) (*Server, error) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	baseDir := filepath.Dir(thisFile)
 	srv := &Server{
-		Hostname:     hostname,
-		TemplatesDir: filepath.Join(baseDir, "templates"),
-		StaticDir:    filepath.Join(baseDir, "static"),
+		Hostname:  hostname,
+		StaticDir: filepath.Join(baseDir, "static"),
 	}
 	if err := srv.setUpDatabase(dbPath); err != nil {
 		return nil, err
@@ -47,87 +44,74 @@ func (s *Server) setUpDatabase(dbPath string) error {
 	return nil
 }
 
-func (s *Server) Serve(addr string) error {
+func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	mux := http.NewServeMux()
 	
-	// Pages
-	mux.HandleFunc("GET /{$}", s.HandleDashboard)
-	mux.HandleFunc("GET /transactions", s.HandleTransactions)
-	mux.HandleFunc("GET /transactions/new", s.HandleTransactionForm)
-	mux.HandleFunc("POST /transactions", s.HandleCreateTransaction)
-	mux.HandleFunc("GET /transactions/{id}/edit", s.HandleEditTransaction)
-	mux.HandleFunc("POST /transactions/{id}", s.HandleUpdateTransaction)
-	mux.HandleFunc("POST /transactions/{id}/delete", s.HandleDeleteTransaction)
+	// API routes
+	mux.HandleFunc("GET /api/dashboard", s.HandleAPIDashboard)
 	
-	mux.HandleFunc("GET /cards", s.HandleCards)
-	mux.HandleFunc("POST /cards", s.HandleCreateCard)
-	mux.HandleFunc("POST /cards/{id}", s.HandleUpdateCard)
-	mux.HandleFunc("POST /cards/{id}/delete", s.HandleDeleteCard)
+	mux.HandleFunc("GET /api/transactions", s.HandleAPIGetTransactions)
+	mux.HandleFunc("GET /api/transactions/{id}", s.HandleAPIGetTransaction)
+	mux.HandleFunc("POST /api/transactions", s.HandleAPICreateTransaction)
+	mux.HandleFunc("PUT /api/transactions/{id}", s.HandleAPIUpdateTransaction)
+	mux.HandleFunc("DELETE /api/transactions/{id}", s.HandleAPIDeleteTransaction)
 	
-	mux.HandleFunc("GET /categories", s.HandleCategories)
-	mux.HandleFunc("POST /categories", s.HandleCreateCategory)
-	mux.HandleFunc("POST /categories/{id}", s.HandleUpdateCategory)
-	mux.HandleFunc("POST /categories/{id}/delete", s.HandleDeleteCategory)
+	mux.HandleFunc("GET /api/cards", s.HandleAPIGetCards)
+	mux.HandleFunc("POST /api/cards", s.HandleAPICreateCard)
+	mux.HandleFunc("PUT /api/cards/{id}", s.HandleAPIUpdateCard)
+	mux.HandleFunc("DELETE /api/cards/{id}", s.HandleAPIDeleteCard)
 	
-	mux.HandleFunc("GET /statistics", s.HandleStatistics)
+	mux.HandleFunc("GET /api/categories", s.HandleAPIGetCategories)
+	mux.HandleFunc("POST /api/categories", s.HandleAPICreateCategory)
+	mux.HandleFunc("PUT /api/categories/{id}", s.HandleAPIUpdateCategory)
+	mux.HandleFunc("DELETE /api/categories/{id}", s.HandleAPIDeleteCategory)
 	
-	// API
-	mux.HandleFunc("POST /api/parse-sms", s.HandleParseSMS)
+	mux.HandleFunc("GET /api/statistics", s.HandleAPIStatistics)
+	mux.HandleFunc("POST /api/parse-sms", s.HandleAPIParseSMS)
 	
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(s.StaticDir))))
+	// Serve frontend
+	if frontendFS != nil {
+		fileServer := http.FileServer(http.FS(frontendFS))
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			// Try to serve file, if not found serve index.html for SPA
+			path := r.URL.Path
+			if path == "/" {
+				path = "/index.html"
+			}
+			
+			// Check if file exists
+			if _, err := fs.Stat(frontendFS, path[1:]); err == nil {
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+			
+			// Serve index.html for SPA routing
+			r.URL.Path = "/index.html"
+			fileServer.ServeHTTP(w, r)
+		})
+	}
 	
 	slog.Info("starting server", "addr", addr)
 	return http.ListenAndServe(addr, mux)
 }
 
-func (s *Server) renderTemplate(w http.ResponseWriter, name string, data any) error {
-	path := filepath.Join(s.TemplatesDir, name)
-	layoutPath := filepath.Join(s.TemplatesDir, "layout.html")
+func calculateBillingPeriod(now time.Time, startDay, endDay int) (time.Time, time.Time) {
+	year, month, day := now.Date()
 	
-	funcMap := template.FuncMap{
-		"formatMoney": func(amount interface{}) string {
-			var val int64
-			switch v := amount.(type) {
-			case int64:
-				val = v
-			case *int64:
-				if v != nil {
-					val = *v
-				}
-			default:
-				return "0원"
-			}
-			str := fmt.Sprintf("%d", val)
-			var result []string
-			for i := len(str); i > 0; i -= 3 {
-				start := i - 3
-				if start < 0 {
-					start = 0
-				}
-				result = append([]string{str[start:i]}, result...)
-			}
-			return strings.Join(result, ",") + "원"
-		},
-		"formatDate": func(t time.Time) string {
-			return t.Format("2006-01-02")
-		},
-		"formatDateTime": func(t time.Time) string {
-			return t.Format("2006-01-02 15:04")
-		},
-		"deref": func(p *int64) int64 {
-			if p != nil {
-				return *p
-			}
-			return 0
-		},
+	var start, end time.Time
+	
+	if startDay <= endDay {
+		start = time.Date(year, month, startDay, 0, 0, 0, 0, now.Location())
+		end = time.Date(year, month, endDay, 0, 0, 0, 0, now.Location()).AddDate(0, 0, 1)
+	} else {
+		if day >= startDay {
+			start = time.Date(year, month, startDay, 0, 0, 0, 0, now.Location())
+			end = time.Date(year, month+1, endDay, 0, 0, 0, 0, now.Location()).AddDate(0, 0, 1)
+		} else {
+			start = time.Date(year, month-1, startDay, 0, 0, 0, 0, now.Location())
+			end = time.Date(year, month, endDay, 0, 0, 0, 0, now.Location()).AddDate(0, 0, 1)
+		}
 	}
 	
-	tmpl, err := template.New("layout.html").Funcs(funcMap).ParseFiles(layoutPath, path)
-	if err != nil {
-		return fmt.Errorf("parse template %q: %w", name, err)
-	}
-	if err := tmpl.Execute(w, data); err != nil {
-		return fmt.Errorf("execute template %q: %w", name, err)
-	}
-	return nil
+	return start, end
 }

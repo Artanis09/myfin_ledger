@@ -1,12 +1,17 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"srv.exe.dev/srv"
 )
+
+//go:embed dist
+var frontendDist embed.FS
 
 var flagListenAddr = flag.String("listen", ":8000", "address to listen on")
 
@@ -26,5 +31,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("create server: %w", err)
 	}
-	return server.Serve(*flagListenAddr)
+	
+	// Get frontend dist
+	frontendFS, err := fs.Sub(frontendDist, "dist")
+	if err != nil {
+		return fmt.Errorf("frontend fs: %w", err)
+	}
+	
+	return server.Serve(*flagListenAddr, frontendFS)
 }

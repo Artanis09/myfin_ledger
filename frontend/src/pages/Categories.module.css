@@ -1,0 +1,141 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.addBtn {
+  background: none;
+  border: none;
+  padding: 8px;
+  color: var(--accent-color);
+}
+
+.description {
+  padding: 16px 20px;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.list {
+  padding: 16px 20px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.itemMain {
+  flex: 1;
+}
+
+.catName {
+  width: 100%;
+  font-size: 16px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.catName:focus {
+  outline: none;
+}
+
+.keywords {
+  width: 100%;
+  font-size: 14px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  padding: 0;
+}
+
+.keywords:focus {
+  outline: none;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  padding: 8px;
+  color: var(--text-tertiary);
+}
+
+.deleteBtn:active {
+  color: var(--expense-color);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-overlay);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 200;
+  animation: fadeIn 0.2s;
+}
+
+.modalContent {
+  width: 100%;
+  max-width: 500px;
+  background: var(--bg-secondary);
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px 40px;
+  animation: slideUp 0.3s;
+}
+
+.modalContent h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.modalContent > input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.cancelBtn {
+  flex: 1;
+  padding: 14px;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.confirmBtn {
+  flex: 1;
+  padding: 14px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  color: white;
+  font-weight: 500;
+}

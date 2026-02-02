@@ -1,0 +1,141 @@
+.container {
+  padding: 0 16px;
+}
+
+.dayGroup {
+  margin-bottom: 8px;
+}
+
+.dayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 4px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dayInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dayNum {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 36px;
+}
+
+.dayMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.dayDate {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.dayOfWeek {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 2px 6px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  margin-top: 2px;
+  display: inline-block;
+}
+
+.dayTotals {
+  text-align: right;
+}
+
+.dayIncome {
+  display: block;
+  font-size: 12px;
+  color: var(--income-color);
+}
+
+.dayExpense {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--expense-color);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.item:active {
+  background: var(--bg-tertiary);
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.itemLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.category {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  min-width: 48px;
+}
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.description {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.itemRight {
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.amount {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--expense-color);
+}
+
+.installment {
+  display: block;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
