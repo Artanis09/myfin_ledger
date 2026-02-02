@@ -1,0 +1,142 @@
+{{define "content"}}
+<div class="card">
+    <h2>💳 {{.CurrentMonth}} 예상 결제 금액</h2>
+    <p class="total" style="margin: 16px 0;">{{formatMoney .TotalThisMonth}}</p>
+    
+    {{if .BillingPeriods}}
+    <div class="summary-grid">
+        {{range .BillingPeriods}}
+        <div class="summary-item">
+            <div class="label">{{.CardName}} ({{.StartDate}}~{{.EndDate}})</div>
+            <div class="value">{{formatMoney .Total}}</div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <p class="text-muted">등록된 거래내역이 없습니다.</p>
+    {{end}}
+</div>
+
+<div class="card">
+    <h2>📱 결제 문자 등록</h2>
+    <p class="text-muted" style="margin-bottom: 12px;">문자 내용을 붙여넣거나 직접 입력하세요</p>
+    
+    <div class="form-group">
+        <label>문자 내용 (OCR 파싱)</label>
+        <textarea id="smsText" rows="4" placeholder="결제 문자 내용을 붙여넣으세요..."></textarea>
+    </div>
+    <button class="btn btn-secondary" onclick="parseSMS()">문자 분석</button>
+    <span style="margin: 0 8px;">또는</span>
+    <a href="/transactions/new" class="btn btn-primary">직접 입력</a>
+    
+    <div id="parseResult" style="margin-top: 16px; display: none;">
+        <form action="/transactions" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>카드사</label>
+                    <select name="card_id" id="parsedCardId">
+                        {{range .Cards}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>날짜</label>
+                    <input type="date" name="transaction_date" id="parsedDate">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>금액</label>
+                    <input type="text" name="amount" id="parsedAmount">
+                </div>
+                <div class="form-group">
+                    <label>사용내역</label>
+                    <input type="text" name="description" id="parsedDesc">
+                </div>
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" name="is_installment" value="1" id="parsedInstallment"> 할부</label>
+            </div>
+            <div id="installmentFields" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>할부 개월</label>
+                        <input type="number" name="installment_months" id="parsedInstMonths">
+                    </div>
+                    <div class="form-group">
+                        <label>현재 회차</label>
+                        <input type="number" name="installment_current" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label>원금 총액</label>
+                        <input type="text" name="original_amount">
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">등록</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📋 최근 거래내역</h2>
+    {{if .RecentTxns}}
+    <table>
+        <tr><th>날짜</th><th>카드</th><th>내역</th><th class="amount">금액</th></tr>
+        {{range .RecentTxns}}
+        <tr>
+            <td>{{formatDate .TransactionDate}}</td>
+            <td>{{.CardName}}</td>
+            <td>
+                {{.Description}}
+                {{if .CategoryName}}<span class="badge badge-category">{{.CategoryName}}</span>{{end}}
+                {{if eq .IsInstallment 1}}<span class="badge badge-installment">{{.InstallmentCurrent}}/{{.InstallmentMonths}}개월</span>{{end}}
+            </td>
+            <td class="amount">{{formatMoney .Amount}}</td>
+        </tr>
+        {{end}}
+    </table>
+    <p style="margin-top: 12px;"><a href="/transactions">전체 보기 →</a></p>
+    {{else}}
+    <p class="text-muted">등록된 거래내역이 없습니다.</p>
+    {{end}}
+</div>
+
+<script>
+const cards = [
+    {{range .Cards}}{id: {{.ID}}, name: "{{.Name}}"},{{end}}
+];
+
+function parseSMS() {
+    const text = document.getElementById('smsText').value;
+    fetch('/api/parse-sms', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text: text})
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('parseResult').style.display = 'block';
+        
+        // Find matching card
+        const card = cards.find(c => c.name.includes(data.card_name) || data.card_name.includes(c.name));
+        if (card) document.getElementById('parsedCardId').value = card.id;
+        
+        document.getElementById('parsedDate').value = data.date || new Date().toISOString().split('T')[0];
+        document.getElementById('parsedAmount').value = data.amount;
+        document.getElementById('parsedDesc').value = data.description;
+        document.getElementById('parsedInstallment').checked = data.is_installment;
+        document.getElementById('parsedInstMonths').value = data.installment_months || '';
+        
+        toggleInstallment();
+    });
+}
+
+document.getElementById('parsedInstallment')?.addEventListener('change', toggleInstallment);
+function toggleInstallment() {
+    const show = document.getElementById('parsedInstallment').checked;
+    document.getElementById('installmentFields').style.display = show ? 'block' : 'none';
+}
+</script>
+{{end}}

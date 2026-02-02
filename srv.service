@@ -1,0 +1,14 @@
+[Unit]
+Description=MyLedger - 가계부 웹앱
+After=network.target
+
+[Service]
+Type=simple
+User=exedev
+WorkingDirectory=/home/exedev/myledger
+ExecStart=/home/exedev/myledger/myledger -listen :8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

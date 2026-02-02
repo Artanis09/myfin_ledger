@@ -1,0 +1,68 @@
+{{define "content"}}
+<div class="card">
+    <h2>➕ 새 거래 등록</h2>
+    
+    <form action="/transactions" method="POST">
+        <div class="form-row">
+            <div class="form-group">
+                <label>카드사 *</label>
+                <select name="card_id" required>
+                    <option value="">선택하세요</option>
+                    {{range .Cards}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>날짜 *</label>
+                <input type="date" name="transaction_date" required>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>금액 (원) *</label>
+                <input type="text" name="amount" placeholder="50,000" required>
+            </div>
+            <div class="form-group">
+                <label>사용내역 *</label>
+                <input type="text" name="description" placeholder="쿠팡" required>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="is_installment" value="1" id="isInstallment"> 할부 결제
+            </label>
+        </div>
+        
+        <div id="installmentFields" style="display: none;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>할부 개월</label>
+                    <input type="number" name="installment_months" min="2" max="36">
+                </div>
+                <div class="form-group">
+                    <label>현재 회차</label>
+                    <input type="number" name="installment_current" value="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label>원금 총액</label>
+                    <input type="text" name="original_amount" placeholder="600,000">
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button type="submit" class="btn btn-primary">등록</button>
+            <a href="/transactions" class="btn btn-secondary">취소</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('isInstallment').addEventListener('change', function() {
+    document.getElementById('installmentFields').style.display = this.checked ? 'block' : 'none';
+});
+</script>
+{{end}}
