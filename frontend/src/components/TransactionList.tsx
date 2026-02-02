@@ -1,18 +1,21 @@
-import { useState, useRef, type TouchEvent } from 'react'
+import { useState } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Check } from 'lucide-react'
 import styles from './TransactionList.module.css'
 import type { Transaction } from '../types'
 
 interface TransactionListProps {
   transactions: Transaction[]
   onEdit?: (id: number) => void
-  onDelete?: (id: number) => void
+  onDelete?: (ids: number[]) => void
   grouped?: boolean
 }
 
 export default function TransactionList({ transactions, onEdit, onDelete, grouped = true }: TransactionListProps) {
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  
   const formatMoney = (amount: number) => amount.toLocaleString() + '원'
   
   // Group by date
@@ -38,6 +41,47 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
     }
   }
   
+  const toggleSelect = (id: number) => {
+    const newSet = new Set(selectedIds)
+    if (newSet.has(id)) {
+      newSet.delete(id)
+    } else {
+      newSet.add(id)
+    }
+    setSelectedIds(newSet)
+  }
+  
+  const handleDelete = () => {
+    if (selectedIds.size === 0) return
+    if (confirm(`${selectedIds.size}건을 삭제하시겠습니까?`)) {
+      onDelete?.([...selectedIds])
+      setSelectedIds(new Set())
+      setSelectMode(false)
+    }
+  }
+  
+  const cancelSelect = () => {
+    setSelectedIds(new Set())
+    setSelectMode(false)
+  }
+  
+  const selectAll = () => {
+    setSelectedIds(new Set(transactions.map(tx => tx.id)))
+  }
+  
+  const handleItemClick = (tx: Transaction) => {
+    if (selectMode) {
+      toggleSelect(tx.id)
+    } else {
+      onEdit?.(tx.id)
+    }
+  }
+  
+  const handleItemLongPress = (id: number) => {
+    setSelectMode(true)
+    setSelectedIds(new Set([id]))
+  }
+  
   if (!grouped) {
     return (
       <div className={styles.list}>
@@ -45,8 +89,10 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
           <TransactionItem 
             key={tx.id} 
             tx={tx} 
-            onEdit={onEdit}
-            onDelete={onDelete}
+            onClick={() => handleItemClick(tx)}
+            onLongPress={() => handleItemLongPress(tx.id)}
+            selectMode={selectMode}
+            selected={selectedIds.has(tx.id)}
           />
         ))}
       </div>
@@ -55,6 +101,25 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
   
   return (
     <div className={styles.container}>
+      {selectMode && (
+        <div className={styles.selectBar}>
+          <button onClick={cancelSelect} className={styles.cancelBtn}>취소</button>
+          <span className={styles.selectCount}>{selectedIds.size}건 선택</span>
+          <div className={styles.selectActions}>
+            <button onClick={selectAll} className={styles.selectAllBtn}>전체</button>
+            <button onClick={handleDelete} className={styles.deleteBtn} disabled={selectedIds.size === 0}>
+              <Trash2 size={18} /> 삭제
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {!selectMode && onDelete && (
+        <div className={styles.editBar}>
+          <button onClick={() => setSelectMode(true)} className={styles.editBtn}>선택</button>
+        </div>
+      )}
+      
       {sortedDates.map(date => {
         const { day, dayOfWeek, full } = formatDate(date)
         const dayTxs = groupedTx[date]
@@ -80,8 +145,10 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
                 <TransactionItem 
                   key={tx.id} 
                   tx={tx}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
+                  onClick={() => handleItemClick(tx)}
+                  onLongPress={() => handleItemLongPress(tx.id)}
+                  selectMode={selectMode}
+                  selected={selectedIds.has(tx.id)}
                 />
               ))}
             </div>
@@ -92,125 +159,61 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
   )
 }
 
-function TransactionItem({ tx, onEdit, onDelete }: { 
+function TransactionItem({ tx, onClick, onLongPress, selectMode, selected }: { 
   tx: Transaction
-  onEdit?: (id: number) => void
-  onDelete?: (id: number) => void
+  onClick: () => void
+  onLongPress: () => void
+  selectMode: boolean
+  selected: boolean
 }) {
   const formatMoney = (amount: number) => amount.toLocaleString() + '원'
   const time = tx.transaction_date.split('T')[1]?.slice(0, 5) || ''
   
-  const [isOpen, setIsOpen] = useState(false)
-  const [translateX, setTranslateX] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startX = useRef(0)
-  const startY = useRef(0)
-  const isHorizontal = useRef<boolean | null>(null)
+  const [pressTimer, setPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
   
-  const DELETE_BTN_WIDTH = 70
-  
-  const handleTouchStart = (e: TouchEvent) => {
-    startX.current = e.touches[0].clientX
-    startY.current = e.touches[0].clientY
-    setIsDragging(true)
-    isHorizontal.current = null
-  }
-  
-  const handleTouchMove = (e: TouchEvent) => {
-    if (!isDragging) return
-    
-    const touchX = e.touches[0].clientX
-    const touchY = e.touches[0].clientY
-    const diffX = startX.current - touchX
-    const diffY = startY.current - touchY
-    
-    // Determine direction on first move
-    if (isHorizontal.current === null) {
-      if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
-        isHorizontal.current = Math.abs(diffX) > Math.abs(diffY)
-      }
-      return
-    }
-    
-    if (!isHorizontal.current) return
-    
-    // Calculate new position
-    let newX: number
-    if (isOpen) {
-      newX = DELETE_BTN_WIDTH - diffX
-    } else {
-      newX = diffX
-    }
-    
-    newX = Math.max(0, Math.min(newX, DELETE_BTN_WIDTH))
-    setTranslateX(newX)
+  const handleTouchStart = () => {
+    const timer = setTimeout(() => {
+      onLongPress()
+    }, 500)
+    setPressTimer(timer)
   }
   
   const handleTouchEnd = () => {
-    setIsDragging(false)
-    isHorizontal.current = null
-    
-    if (translateX > DELETE_BTN_WIDTH / 2) {
-      setIsOpen(true)
-      setTranslateX(DELETE_BTN_WIDTH)
-    } else {
-      setIsOpen(false)
-      setTranslateX(0)
+    if (pressTimer) {
+      clearTimeout(pressTimer)
+      setPressTimer(null)
     }
   }
-  
-  const handleItemClick = () => {
-    if (isOpen) {
-      setIsOpen(false)
-      setTranslateX(0)
-    } else if (translateX === 0) {
-      onEdit?.(tx.id)
-    }
-  }
-  
-  const handleDeleteClick = () => {
-    if (onDelete) {
-      onDelete(tx.id)
-    }
-  }
-  
-  const offset = isDragging ? translateX : (isOpen ? DELETE_BTN_WIDTH : 0)
   
   return (
-    <div className={styles.swipeContainer}>
-      <div 
-        className={styles.deleteAction}
-        onTouchEnd={(e) => { e.stopPropagation(); handleDeleteClick(); }}
-        onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
-      >
-        <Trash2 size={20} />
-        <span>삭제</span>
+    <div 
+      className={`${styles.item} ${selected ? styles.selected : ''}`}
+      onClick={onClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
+      {selectMode && (
+        <div className={`${styles.checkbox} ${selected ? styles.checked : ''}`}>
+          {selected && <Check size={14} />}
+        </div>
+      )}
+      <div className={styles.itemLeft}>
+        <span className={styles.category}>{tx.category_name || '기타'}</span>
+        <div className={styles.itemInfo}>
+          <span className={styles.description}>{tx.description}</span>
+          <span className={styles.meta}>
+            {time && `${time} · `}{tx.card_name}
+          </span>
+        </div>
       </div>
-      <div 
-        className={`${styles.item} ${isDragging ? '' : styles.itemAnimated}`}
-        style={{ transform: `translateX(-${offset}px)` }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={handleItemClick}
-      >
-        <div className={styles.itemLeft}>
-          <span className={styles.category}>{tx.category_name || '기타'}</span>
-          <div className={styles.itemInfo}>
-            <span className={styles.description}>{tx.description}</span>
-            <span className={styles.meta}>
-              {time && `${time} · `}{tx.card_name}
-            </span>
-          </div>
-        </div>
-        <div className={styles.itemRight}>
-          <span className={styles.amount}>{formatMoney(tx.amount)}</span>
-          {tx.is_installment === 1 && (
-            <span className={styles.installment}>
-              {tx.installment_current}/{tx.installment_months}개월
-            </span>
-          )}
-        </div>
+      <div className={styles.itemRight}>
+        <span className={styles.amount}>{formatMoney(tx.amount)}</span>
+        {tx.is_installment === 1 && (
+          <span className={styles.installment}>
+            {tx.installment_current}/{tx.installment_months}개월
+          </span>
+        )}
       </div>
     </div>
   )

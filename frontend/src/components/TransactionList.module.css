@@ -69,26 +69,77 @@
   flex-direction: column;
 }
 
-.swipeContainer {
-  position: relative;
-  overflow: hidden;
+.selectBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--accent-color);
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.deleteAction {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 70px;
-  background: #ef4444;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+.cancelBtn {
+  background: none;
+  border: none;
   color: white;
-  font-size: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.selectCount {
+  font-size: 14px;
   font-weight: 500;
+}
+
+.selectActions {
+  display: flex;
+  gap: 8px;
+}
+
+.selectAllBtn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #ef4444;
+  border: none;
+  color: white;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.deleteBtn:disabled {
+  opacity: 0.5;
+}
+
+.editBar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px;
+}
+
+.editBtn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 4px;
   cursor: pointer;
 }
 
@@ -100,13 +151,29 @@
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   background: var(--bg-secondary);
-  position: relative;
-  z-index: 1;
-  touch-action: pan-y;
+  transition: background 0.2s;
 }
 
-.itemAnimated {
-  transition: transform 0.2s ease-out;
+.item.selected {
+  background: var(--accent-color-light, rgba(239, 68, 68, 0.1));
+}
+
+.checkbox {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.checkbox.checked {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
 }
 
 .item:active {

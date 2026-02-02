@@ -197,6 +197,37 @@ func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, s
 				}
 			}
 
+			// Check for duplicate transaction
+			var dupCount int64
+			dateStr := transDate.Format("2006-01-02")
+			err = s.DB.QueryRowContext(ctx,
+				`SELECT COUNT(*) FROM transactions WHERE card_id = ? AND amount = ? AND description = ? AND substr(transaction_date, 1, 10) = ?`,
+				card.ID, parsed.Amount, parsed.Description, dateStr,
+			).Scan(&dupCount)
+			if err == nil && dupCount > 0 {
+				errStr := "duplicate transaction: already exists"
+				errorMsg = &errStr
+				status = "duplicate"
+				// Update SMS log and return early
+				queries.UpdateSMSLogStatus(ctx, dbgen.UpdateSMSLogStatusParams{
+					ID:           smsLog.ID,
+					Status:       status,
+					ErrorMessage: errorMsg,
+				})
+				return map[string]interface{}{
+					"status":     status,
+					"sms_log_id": smsLog.ID,
+					"error":      *errorMsg,
+					"parsed": map[string]interface{}{
+						"card_name":   parsed.CardName,
+						"amount":      parsed.Amount,
+						"description": parsed.Description,
+						"date":        parsed.Date,
+						"time":        parsed.Time,
+					},
+				}
+			}
+
 			// Create transaction
 			var installmentMonths, installmentCurrent, originalAmount *int64
 			var isInstallment int64 = 0

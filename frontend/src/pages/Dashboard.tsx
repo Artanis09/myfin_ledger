@@ -46,9 +46,9 @@ export default function Dashboard() {
     navigate(`/transactions/${id}/edit`)
   }
   
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (ids: number[]) => {
     try {
-      await api.deleteTransaction(id)
+      await Promise.all(ids.map(id => api.deleteTransaction(id)))
       loadData()
     } catch (err) {
       console.error('Failed to delete:', err)
