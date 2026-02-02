@@ -1,39 +1,60 @@
 {{define "content"}}
 <div class="card">
-    <h2>💳 카드 관리</h2>
-    <p class="text-muted" style="margin-bottom: 16px;">각 카드사의 결제일 반영 기간을 설정하세요. (예: 22일~21일)</p>
+    <div class="card-header">
+        <div class="icon icon-warning">💳</div>
+        <h2>카드 관리</h2>
+    </div>
+    <p class="text-muted" style="margin-bottom: 20px;">
+        각 카드사의 결제일 반영 기간을 설정하세요.<br>
+        <strong>예시:</strong> 22일~21일은 이번달 22일부터 다음달 21일까지의 결제가 다음달에 청구됩니다.
+    </p>
     
     {{if .Cards}}
-    <table>
-        <tr>
-            <th>카드사</th>
-            <th>결산 시작일</th>
-            <th>결산 종료일</th>
-            <th></th>
-        </tr>
-        {{range .Cards}}
-        <tr>
-            <form action="/cards/{{.ID}}" method="POST">
-                <td><input type="text" name="name" value="{{.Name}}" style="width: 150px;"></td>
-                <td><input type="number" name="billing_start_day" value="{{.BillingStartDay}}" min="1" max="31" style="width: 80px;">일</td>
-                <td><input type="number" name="billing_end_day" value="{{.BillingEndDay}}" min="1" max="31" style="width: 80px;">일</td>
-                <td class="actions">
-                    <button type="submit" class="btn btn-secondary btn-sm">저장</button>
-            </form>
-                    <form action="/cards/{{.ID}}/delete" method="POST" onsubmit="return confirm('삭제하시겠습니까?');">
-                        <button type="submit" class="btn btn-danger btn-sm">삭제</button>
-                    </form>
-                </td>
-        </tr>
-        {{end}}
-    </table>
+    <div style="overflow-x: auto;">
+        <table>
+            <tr>
+                <th>카드사</th>
+                <th>결산 시작일</th>
+                <th>결산 종료일</th>
+                <th style="width: 120px;"></th>
+            </tr>
+            {{range .Cards}}
+            <tr>
+                <form action="/cards/{{.ID}}" method="POST">
+                    <td><input type="text" name="name" value="{{.Name}}" style="width: 150px;"></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="number" name="billing_start_day" value="{{.BillingStartDay}}" min="1" max="31" style="width: 80px;">
+                            <span>일</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="number" name="billing_end_day" value="{{.BillingEndDay}}" min="1" max="31" style="width: 80px;">
+                            <span>일</span>
+                        </div>
+                    </td>
+                    <td class="actions">
+                        <button type="submit" class="btn btn-secondary btn-sm">✅</button>
+                </form>
+                        <form action="/cards/{{.ID}}/delete" method="POST" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                            <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+                        </form>
+                    </td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
     {{else}}
     <p class="text-muted">등록된 카드가 없습니다.</p>
     {{end}}
 </div>
 
 <div class="card">
-    <h2>➕ 새 카드 등록</h2>
+    <div class="card-header">
+        <div class="icon icon-success">➕</div>
+        <h2>새 카드 등록</h2>
+    </div>
     <form action="/cards" method="POST">
         <div class="form-row">
             <div class="form-group">
@@ -49,7 +70,7 @@
                 <input type="number" name="billing_end_day" value="31" min="1" max="31">
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">등록</button>
+        <button type="submit" class="btn btn-primary">➕ 등록</button>
     </form>
 </div>
 {{end}}

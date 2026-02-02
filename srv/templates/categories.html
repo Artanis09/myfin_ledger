@@ -1,37 +1,48 @@
 {{define "content"}}
 <div class="card">
-    <h2>🏷️ 카테고리 관리</h2>
-    <p class="text-muted" style="margin-bottom: 16px;">키워드를 설정하면 거래내역이 자동으로 분류됩니다. (쉼표로 구분)</p>
+    <div class="card-header">
+        <div class="icon icon-secondary">🏷️</div>
+        <h2>카테고리 관리</h2>
+    </div>
+    <p class="text-muted" style="margin-bottom: 20px;">
+        키워드를 설정하면 거래내역이 자동으로 분류됩니다.<br>
+        <strong>예시:</strong> "카페" 카테고리에 "스타벅스,이디야,메가커피" 키워드를 등록하면 해당 단어가 포함된 거래가 자동 분류됩니다.
+    </p>
     
     {{if .Categories}}
-    <table>
-        <tr>
-            <th>카테고리</th>
-            <th>키워드</th>
-            <th></th>
-        </tr>
-        {{range .Categories}}
-        <tr>
-            <form action="/categories/{{.ID}}" method="POST">
-                <td><input type="text" name="name" value="{{.Name}}" style="width: 120px;"></td>
-                <td><input type="text" name="keywords" value="{{.Keywords}}" placeholder="키워드1,키워드2"></td>
-                <td class="actions">
-                    <button type="submit" class="btn btn-secondary btn-sm">저장</button>
-            </form>
-                    <form action="/categories/{{.ID}}/delete" method="POST" onsubmit="return confirm('삭제하시겠습니까?');">
-                        <button type="submit" class="btn btn-danger btn-sm">삭제</button>
-                    </form>
-                </td>
-        </tr>
-        {{end}}
-    </table>
+    <div style="overflow-x: auto;">
+        <table>
+            <tr>
+                <th style="width: 120px;">카테고리</th>
+                <th>키워드 (쉼표로 구분)</th>
+                <th style="width: 100px;"></th>
+            </tr>
+            {{range .Categories}}
+            <tr>
+                <form action="/categories/{{.ID}}" method="POST">
+                    <td><input type="text" name="name" value="{{.Name}}" style="width: 100px;"></td>
+                    <td><input type="text" name="keywords" value="{{.Keywords}}" placeholder="키워드1,키워드2"></td>
+                    <td class="actions">
+                        <button type="submit" class="btn btn-secondary btn-sm">✅</button>
+                </form>
+                        <form action="/categories/{{.ID}}/delete" method="POST" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                            <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+                        </form>
+                    </td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
     {{else}}
     <p class="text-muted">등록된 카테고리가 없습니다.</p>
     {{end}}
 </div>
 
 <div class="card">
-    <h2>➕ 새 카테고리 등록</h2>
+    <div class="card-header">
+        <div class="icon icon-success">➕</div>
+        <h2>새 카테고리 등록</h2>
+    </div>
     <form action="/categories" method="POST">
         <div class="form-row">
             <div class="form-group">
@@ -39,11 +50,11 @@
                 <input type="text" name="name" placeholder="식비" required>
             </div>
             <div class="form-group">
-                <label>키워드 (쉼표 구분)</label>
+                <label>키워드 (쉼표로 구분)</label>
                 <input type="text" name="keywords" placeholder="배달의민족,요기요,식당">
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">등록</button>
+        <button type="submit" class="btn btn-primary">➕ 등록</button>
     </form>
 </div>
 {{end}}

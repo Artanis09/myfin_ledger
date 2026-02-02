@@ -1,49 +1,59 @@
 {{define "content"}}
 <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h2>📝 거래내역</h2>
-        <a href="/transactions/new" class="btn btn-primary">새 거래 등록</a>
+    <div class="card-header">
+        <div class="icon icon-success">📝</div>
+        <h2>거래내역</h2>
+        <div style="margin-left: auto;">
+            <a href="/transactions/new" class="btn btn-primary">➕ 새 거래 등록</a>
+        </div>
     </div>
     
     {{if .Transactions}}
-    <table>
-        <tr>
-            <th>날짜</th>
-            <th>카드</th>
-            <th>내역</th>
-            <th>카테고리</th>
-            <th class="amount">금액</th>
-            <th></th>
-        </tr>
-        {{range .Transactions}}
-        <tr>
-            <td>{{formatDate .TransactionDate}}</td>
-            <td>{{.CardName}}</td>
-            <td>
-                {{.Description}}
-                {{if eq .IsInstallment 1}}
-                <span class="badge badge-installment">{{.InstallmentCurrent}}/{{.InstallmentMonths}}개월</span>
-                {{end}}
-            </td>
-            <td>
-                {{if .CategoryName}}
-                <span class="badge badge-category">{{.CategoryName}}</span>
-                {{else}}
-                <span class="text-muted">-</span>
-                {{end}}
-            </td>
-            <td class="amount">{{formatMoney .Amount}}</td>
-            <td class="actions">
-                <a href="/transactions/{{.ID}}/edit" class="btn btn-secondary btn-sm">수정</a>
-                <form action="/transactions/{{.ID}}/delete" method="POST" onsubmit="return confirm('삭제하시겠습니까?');">
-                    <button type="submit" class="btn btn-danger btn-sm">삭제</button>
-                </form>
-            </td>
-        </tr>
-        {{end}}
-    </table>
+    <div style="overflow-x: auto;">
+        <table>
+            <tr>
+                <th>날짜</th>
+                <th>카드</th>
+                <th>내역</th>
+                <th>카테고리</th>
+                <th class="amount">금액</th>
+                <th style="width: 100px;"></th>
+            </tr>
+            {{range .Transactions}}
+            <tr>
+                <td style="white-space: nowrap;">{{formatDate .TransactionDate}}</td>
+                <td>{{.CardName}}</td>
+                <td>
+                    {{.Description}}
+                    {{if eq .IsInstallment 1}}
+                    <span class="badge badge-installment">{{.InstallmentCurrent}}/{{.InstallmentMonths}}개월</span>
+                    {{end}}
+                </td>
+                <td>
+                    {{if .CategoryName}}
+                    <span class="badge badge-category">{{.CategoryName}}</span>
+                    {{else}}
+                    <span class="text-muted">-</span>
+                    {{end}}
+                </td>
+                <td class="amount" style="white-space: nowrap;">{{formatMoney .Amount}}</td>
+                <td class="actions">
+                    <a href="/transactions/{{.ID}}/edit" class="btn btn-secondary btn-sm">✏️</a>
+                    <form action="/transactions/{{.ID}}/delete" method="POST" onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                        <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+                    </form>
+                </td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
     {{else}}
-    <p class="text-muted">등록된 거래내역이 없습니다.</p>
+    <div class="empty-state">
+        <div class="icon">💭</div>
+        <p>등록된 거래내역이 없습니다.</p>
+        <p class="text-muted" style="margin-bottom: 20px;">첫 번째 거래를 등록해보세요!</p>
+        <a href="/transactions/new" class="btn btn-primary">➕ 새 거래 등록</a>
+    </div>
     {{end}}
 </div>
 {{end}}

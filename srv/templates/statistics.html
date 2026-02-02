@@ -1,8 +1,11 @@
 {{define "content"}}
 <div class="card">
-    <h2>📊 지출 통계</h2>
+    <div class="card-header">
+        <div class="icon icon-primary">📊</div>
+        <h2>지출 통계</h2>
+    </div>
     
-    <form method="GET" style="margin-bottom: 16px;">
+    <form method="GET" style="margin-bottom: 20px;">
         <div class="form-row">
             <div class="form-group">
                 <label>시작일</label>
@@ -13,50 +16,145 @@
                 <input type="date" name="end" value="{{.EndDate}}">
             </div>
             <div class="form-group" style="display: flex; align-items: flex-end;">
-                <button type="submit" class="btn btn-primary">조회</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">🔍 조회</button>
             </div>
         </div>
     </form>
     
-    <p style="margin-bottom: 16px;">
-        <strong>기간:</strong> {{.StartDate}} ~ {{.EndDate}}
-        <span style="float: right;" class="total">{{formatMoney .Total}}</span>
-    </p>
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; background: linear-gradient(135deg, var(--gray-50) 0%, #f0f4ff 100%); border-radius: 12px;">
+        <div>
+            <div class="text-muted">조회 기간</div>
+            <div style="font-weight: 600; font-size: 16px;">{{.StartDate}} ~ {{.EndDate}}</div>
+        </div>
+        <div style="text-align: right;">
+            <div class="text-muted">총 지출</div>
+            <div style="font-size: 32px; font-weight: 700; color: var(--primary);">{{formatMoney .Total}}</div>
+        </div>
+    </div>
 </div>
 
+{{if or .ByCard .ByCategory}}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="icon icon-warning">💳</div>
+            <h2>카드별 지출</h2>
+        </div>
+        {{if .ByCard}}
+        <div id="cardChart" class="chart-container"></div>
+        <table style="margin-top: 16px;">
+            <tr><th>카드사</th><th>건수</th><th class="amount">금액</th></tr>
+            {{range .ByCard}}
+            <tr>
+                <td>{{.CardName}}</td>
+                <td>{{.Count}}건</td>
+                <td class="amount">{{formatMoney .TotalAmount}}</td>
+            </tr>
+            {{end}}
+        </table>
+        {{else}}
+        <p class="text-muted">데이터가 없습니다.</p>
+        {{end}}
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="icon icon-secondary">🏷️</div>
+            <h2>카테고리별 지출</h2>
+        </div>
+        {{if .ByCategory}}
+        <div id="categoryChart" class="chart-container"></div>
+        <table style="margin-top: 16px;">
+            <tr><th>카테고리</th><th>건수</th><th class="amount">금액</th></tr>
+            {{range .ByCategory}}
+            <tr>
+                <td><span class="badge badge-category">{{.CategoryName}}</span></td>
+                <td>{{.Count}}건</td>
+                <td class="amount">{{formatMoney .TotalAmount}}</td>
+            </tr>
+            {{end}}
+        </table>
+        {{else}}
+        <p class="text-muted">데이터가 없습니다.</p>
+        {{end}}
+    </div>
+</div>
+{{else}}
 <div class="card">
-    <h2>카드별 지출</h2>
+    <div class="empty-state">
+        <div class="icon">💭</div>
+        <p>해당 기간에 데이터가 없습니다.</p>
+        <p class="text-muted">다른 기간을 선택해주세요.</p>
+    </div>
+</div>
+{{end}}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Card Chart
     {{if .ByCard}}
-    <table>
-        <tr><th>카드사</th><th>건수</th><th class="amount">금액</th></tr>
+    var cardData = [
         {{range .ByCard}}
-        <tr>
-            <td>{{.CardName}}</td>
-            <td>{{.Count}}건</td>
-            <td class="amount">{{formatMoney .TotalAmount}}</td>
-        </tr>
+        { name: '{{.CardName}}', value: {{.TotalAmount}} },
         {{end}}
-    </table>
-    {{else}}
-    <p class="text-muted">데이터가 없습니다.</p>
+    ];
+    
+    if (cardData.length > 0) {
+        Plotly.newPlot('cardChart', [{
+            type: 'bar',
+            x: cardData.map(d => d.name),
+            y: cardData.map(d => d.value),
+            marker: {
+                color: cardData.map((_, i) => {
+                    const colors = ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'];
+                    return colors[i % colors.length];
+                }),
+                borderRadius: 8
+            },
+            text: cardData.map(d => (d.value).toLocaleString() + '원'),
+            textposition: 'outside',
+            hovertemplate: '%{x}<br>%{text}<extra></extra>'
+        }], {
+            margin: { t: 20, b: 60, l: 60, r: 20 },
+            height: 250,
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { family: 'Noto Sans KR' },
+            xaxis: { fixedrange: true },
+            yaxis: { fixedrange: true, tickformat: ',.0f' }
+        }, { displayModeBar: false, responsive: true });
+    }
     {{end}}
-</div>
-
-<div class="card">
-    <h2>카테고리별 지출</h2>
+    
+    // Category Chart
     {{if .ByCategory}}
-    <table>
-        <tr><th>카테고리</th><th>건수</th><th class="amount">금액</th></tr>
+    var categoryData = [
         {{range .ByCategory}}
-        <tr>
-            <td><span class="badge badge-category">{{.CategoryName}}</span></td>
-            <td>{{.Count}}건</td>
-            <td class="amount">{{formatMoney .TotalAmount}}</td>
-        </tr>
+        { name: '{{.CategoryName}}', value: {{.TotalAmount}} },
         {{end}}
-    </table>
-    {{else}}
-    <p class="text-muted">데이터가 없습니다.</p>
+    ];
+    
+    if (categoryData.length > 0) {
+        Plotly.newPlot('categoryChart', [{
+            type: 'pie',
+            labels: categoryData.map(d => d.name),
+            values: categoryData.map(d => d.value),
+            hole: 0.45,
+            marker: {
+                colors: ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6']
+            },
+            textinfo: 'label+percent',
+            textposition: 'outside',
+            hovertemplate: '%{label}<br>%{value:,.0f}원<br>%{percent}<extra></extra>'
+        }], {
+            margin: { t: 20, b: 20, l: 20, r: 20 },
+            height: 280,
+            paper_bgcolor: 'transparent',
+            font: { family: 'Noto Sans KR', size: 12 },
+            showlegend: false
+        }, { displayModeBar: false, responsive: true });
+    }
     {{end}}
-</div>
+});
+</script>
 {{end}}

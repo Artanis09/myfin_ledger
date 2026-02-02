@@ -1,6 +1,9 @@
 {{define "content"}}
 <div class="card">
-    <h2>✏️ 거래 수정</h2>
+    <div class="card-header">
+        <div class="icon icon-warning">✏️</div>
+        <h2>거래 수정</h2>
+    </div>
     
     <form action="/transactions/{{.Transaction.ID}}" method="POST">
         <div class="form-row">
@@ -40,12 +43,13 @@
         </div>
         
         <div class="form-group">
-            <label>
-                <input type="checkbox" name="is_installment" value="1" id="isInstallment" {{if eq .Transaction.IsInstallment 1}}checked{{end}}> 할부 결제
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" name="is_installment" value="1" id="isInstallment" {{if eq .Transaction.IsInstallment 1}}checked{{end}}>
+                <span>할부 결제</span>
             </label>
         </div>
         
-        <div id="installmentFields" style="display: {{if eq .Transaction.IsInstallment 1}}block{{else}}none{{end}};">
+        <div id="installmentFields" style="display: {{if eq .Transaction.IsInstallment 1}}block{{else}}none{{end}}; padding: 20px; background: var(--gray-50); border-radius: 12px; margin-bottom: 20px;">
             <div class="form-row">
                 <div class="form-group">
                     <label>할부 개월</label>
@@ -62,8 +66,8 @@
             </div>
         </div>
         
-        <div style="margin-top: 20px;">
-            <button type="submit" class="btn btn-primary">저장</button>
+        <div style="display: flex; gap: 12px;">
+            <button type="submit" class="btn btn-primary">✅ 저장</button>
             <a href="/transactions" class="btn btn-secondary">취소</a>
         </div>
     </form>
