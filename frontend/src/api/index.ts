@@ -79,4 +79,10 @@ export const api = {
     method: 'DELETE',
   }),
   getSMSLogs: (limit = 50) => fetchJSON<any[]>(`/shortcut/logs?limit=${limit}`),
+  deleteSMSLog: (id: number) => fetchJSON<any>(`/shortcut/logs/${id}`, {
+    method: 'DELETE',
+  }),
+  deleteAllSMSLogs: () => fetchJSON<any>('/shortcut/logs', {
+    method: 'DELETE',
+  }),
 }

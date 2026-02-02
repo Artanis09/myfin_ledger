@@ -75,6 +75,8 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	mux.HandleFunc("GET /api/shortcut/keys", s.HandleGetAPIKeys)
 	mux.HandleFunc("DELETE /api/shortcut/keys/{id}", s.HandleDeactivateAPIKey)
 	mux.HandleFunc("GET /api/shortcut/logs", s.HandleGetSMSLogs)
+	mux.HandleFunc("DELETE /api/shortcut/logs/{id}", s.HandleDeleteSMSLog)
+	mux.HandleFunc("DELETE /api/shortcut/logs", s.HandleDeleteAllSMSLogs)
 
 	// Handle trailing slash redirects for API routes
 	mux.HandleFunc("/api/shortcut/keys/", func(w http.ResponseWriter, r *http.Request) {

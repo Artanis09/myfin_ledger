@@ -29,3 +29,9 @@ UPDATE api_keys SET is_active = 0 WHERE id = ?;
 
 -- name: GetCardByName :one
 SELECT * FROM cards WHERE name = ?;
+
+-- name: DeleteSMSLog :exec
+DELETE FROM sms_logs WHERE id = ?;
+
+-- name: DeleteAllSMSLogs :exec
+DELETE FROM sms_logs;

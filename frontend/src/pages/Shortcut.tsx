@@ -77,6 +77,26 @@ export default function Shortcut() {
     }
   }
   
+  async function deleteSMSLog(id: number) {
+    if (!confirm('이 로그를 삭제하시겠습니까?')) return
+    try {
+      await api.deleteSMSLog(id)
+      loadData()
+    } catch (e) {
+      console.error('Failed to delete SMS log:', e)
+    }
+  }
+  
+  async function deleteAllSMSLogs() {
+    if (!confirm('모든 SMS 로그를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
+    try {
+      await api.deleteAllSMSLogs()
+      loadData()
+    } catch (e) {
+      console.error('Failed to delete all SMS logs:', e)
+    }
+  }
+  
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text)
     setCopied(true)
@@ -209,7 +229,14 @@ export default function Shortcut() {
       {tab === 'logs' && (
         <div className={styles.content}>
           <div className={styles.section}>
-            <h3>최근 SMS 수신 로그</h3>
+            <div className={styles.sectionHeader}>
+              <h3>최근 SMS 수신 로그</h3>
+              {smsLogs.length > 0 && (
+                <button onClick={deleteAllSMSLogs} className={styles.deleteAllBtn}>
+                  <Trash2 size={14} /> 전체 삭제
+                </button>
+              )}
+            </div>
             {loading ? (
               <div className={styles.loading}>로딩 중...</div>
             ) : smsLogs.length === 0 ? (
@@ -225,7 +252,12 @@ export default function Shortcut() {
                         {log.status === 'received' && <AlertCircle size={14} />}
                         {log.status}
                       </span>
-                      <span className={styles.logTime}>{formatDate(log.created_at)}</span>
+                      <div className={styles.logActions}>
+                        <span className={styles.logTime}>{formatDate(log.created_at)}</span>
+                        <button onClick={() => deleteSMSLog(log.id)} className={styles.logDeleteBtn}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                     
                     {log.parsed_card_name && (

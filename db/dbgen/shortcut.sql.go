@@ -89,6 +89,24 @@ func (q *Queries) DeactivateAPIKey(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteAllSMSLogs = `-- name: DeleteAllSMSLogs :exec
+DELETE FROM sms_logs
+`
+
+func (q *Queries) DeleteAllSMSLogs(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllSMSLogs)
+	return err
+}
+
+const deleteSMSLog = `-- name: DeleteSMSLog :exec
+DELETE FROM sms_logs WHERE id = ?
+`
+
+func (q *Queries) DeleteSMSLog(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteSMSLog, id)
+	return err
+}
+
 const getAPIKeyByHash = `-- name: GetAPIKeyByHash :one
 SELECT id, key_hash, name, is_active, last_used_at, created_at FROM api_keys WHERE key_hash = ? AND is_active = 1
 `

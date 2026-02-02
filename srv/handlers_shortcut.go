@@ -311,6 +311,38 @@ func (s *Server) HandleGetSMSLogs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logs)
 }
 
+// HandleDeleteSMSLog deletes a single SMS log
+// DELETE /api/shortcut/logs/{id}
+func (s *Server) HandleDeleteSMSLog(w http.ResponseWriter, r *http.Request) {
+	id := parseInt64(r.PathValue("id"))
+	if id == 0 {
+		http.Error(w, `{"error": "invalid id"}`, http.StatusBadRequest)
+		return
+	}
+
+	queries := dbgen.New(s.DB)
+	if err := queries.DeleteSMSLog(r.Context(), id); err != nil {
+		http.Error(w, `{"error": "failed to delete SMS log"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}
+
+// HandleDeleteAllSMSLogs deletes all SMS logs
+// DELETE /api/shortcut/logs
+func (s *Server) HandleDeleteAllSMSLogs(w http.ResponseWriter, r *http.Request) {
+	queries := dbgen.New(s.DB)
+	if err := queries.DeleteAllSMSLogs(r.Context()); err != nil {
+		http.Error(w, `{"error": "failed to delete SMS logs"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "all deleted"})
+}
+
 func hashAPIKey(key string) string {
 	hash := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(hash[:])
