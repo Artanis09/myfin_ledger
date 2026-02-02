@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+type ApiKey struct {
+	ID         int64      `json:"id"`
+	KeyHash    string     `json:"key_hash"`
+	Name       string     `json:"name"`
+	IsActive   int64      `json:"is_active"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
 type Card struct {
 	ID              int64     `json:"id"`
 	Name            string    `json:"name"`
@@ -27,6 +36,19 @@ type Migration struct {
 	MigrationNumber int64     `json:"migration_number"`
 	MigrationName   string    `json:"migration_name"`
 	ExecutedAt      time.Time `json:"executed_at"`
+}
+
+type SmsLog struct {
+	ID                int64     `json:"id"`
+	RawText           string    `json:"raw_text"`
+	ParsedCardName    *string   `json:"parsed_card_name"`
+	ParsedAmount      *int64    `json:"parsed_amount"`
+	ParsedDescription *string   `json:"parsed_description"`
+	ParsedDate        *string   `json:"parsed_date"`
+	TransactionID     *int64    `json:"transaction_id"`
+	Status            string    `json:"status"`
+	ErrorMessage      *string   `json:"error_message"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type Transaction struct {

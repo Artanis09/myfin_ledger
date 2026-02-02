@@ -1,4 +1,4 @@
-import { Moon, Sun, CreditCard, Tag } from 'lucide-react'
+import { Moon, Sun, CreditCard, Tag, Smartphone } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import Header from '../components/Header'
@@ -38,6 +38,13 @@ export default function Settings() {
           <div className={styles.itemLeft}>
             <Tag size={20} />
             <span>카테고리 관리</span>
+          </div>
+          <span className={styles.arrow}>›</span>
+        </div>
+        <div className={styles.item} onClick={() => navigate('/shortcut')}>
+          <div className={styles.itemLeft}>
+            <Smartphone size={20} />
+            <span>아이폰 단축어 연동</span>
           </div>
           <span className={styles.arrow}>›</span>
         </div>

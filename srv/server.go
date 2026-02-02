@@ -69,6 +69,21 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	mux.HandleFunc("GET /api/statistics", s.HandleAPIStatistics)
 	mux.HandleFunc("POST /api/parse-sms", s.HandleAPIParseSMS)
 	
+	// iPhone Shortcut API routes
+	mux.HandleFunc("POST /api/shortcut/message", s.HandleShortcutMessage)
+	mux.HandleFunc("POST /api/shortcut/keys", s.HandleGenerateAPIKey)
+	mux.HandleFunc("GET /api/shortcut/keys", s.HandleGetAPIKeys)
+	mux.HandleFunc("DELETE /api/shortcut/keys/{id}", s.HandleDeactivateAPIKey)
+	mux.HandleFunc("GET /api/shortcut/logs", s.HandleGetSMSLogs)
+
+	// Handle trailing slash redirects for API routes
+	mux.HandleFunc("/api/shortcut/keys/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/api/shortcut/keys", http.StatusMovedPermanently)
+	})
+	mux.HandleFunc("/api/shortcut/logs/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/api/shortcut/logs", http.StatusMovedPermanently)
+	})
+	
 	// Serve frontend
 	if frontendFS != nil {
 		fileServer := http.FileServer(http.FS(frontendFS))

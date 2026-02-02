@@ -68,4 +68,15 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ text }),
   }),
+  
+  // iPhone Shortcut API
+  getAPIKeys: () => fetchJSON<any[]>('/shortcut/keys'),
+  createAPIKey: (name: string) => fetchJSON<{ api_key: string; name: string }>('/shortcut/keys', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  }),
+  deleteAPIKey: (id: number) => fetchJSON<any>(`/shortcut/keys/${id}`, {
+    method: 'DELETE',
+  }),
+  getSMSLogs: (limit = 50) => fetchJSON<any[]>(`/shortcut/logs?limit=${limit}`),
 }

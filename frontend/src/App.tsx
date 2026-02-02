@@ -7,6 +7,7 @@ import Cards from './pages/Cards'
 import Categories from './pages/Categories'
 import Settings from './pages/Settings'
 import TransactionForm from './pages/TransactionForm'
+import Shortcut from './pages/Shortcut'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="cards" element={<Cards />} />
         <Route path="categories" element={<Categories />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="shortcut" element={<Shortcut />} />
       </Route>
     </Routes>
   )
