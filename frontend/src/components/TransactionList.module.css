@@ -69,6 +69,25 @@
   flex-direction: column;
 }
 
+.swipeContainer {
+  position: relative;
+  overflow: hidden;
+}
+
+.deleteAction {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .item {
   display: flex;
   justify-content: space-between;
@@ -76,7 +95,10 @@
   padding: 14px 4px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: transform 0.2s ease-out, background 0.2s;
+  background: var(--bg-secondary);
+  position: relative;
+  z-index: 1;
 }
 
 .item:active {

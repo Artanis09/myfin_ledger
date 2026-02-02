@@ -43,6 +43,17 @@ export default function Transactions() {
     navigate(`/transactions/${id}/edit`)
   }
   
+  const handleDelete = async (id: number) => {
+    if (!confirm('이 거래내역을 삭제하시겠습니까?')) return
+    try {
+      await api.deleteTransaction(id)
+      loadData()
+    } catch (err) {
+      console.error('Failed to delete:', err)
+      alert('삭제에 실패했습니다.')
+    }
+  }
+  
   const totalExpense = transactions.reduce((sum, tx) => sum + tx.amount, 0)
   
   return (
@@ -73,6 +84,7 @@ export default function Transactions() {
         <TransactionList 
           transactions={transactions}
           onEdit={handleEdit}
+          onDelete={handleDelete}
         />
       ) : (
         <div className={styles.empty}>

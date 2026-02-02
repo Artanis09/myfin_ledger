@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { addMonths, subMonths, startOfMonth, endOfMonth, format } from 'date-fns'
 import Header from '../components/Header'
 import MonthSummary from '../components/MonthSummary'
@@ -9,6 +10,7 @@ import type { Transaction, BillingPeriod } from '../types'
 import styles from './Dashboard.module.css'
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [billingPeriods, setBillingPeriods] = useState<BillingPeriod[]>([])
@@ -37,6 +39,21 @@ export default function Dashboard() {
       console.error('Failed to load data:', err)
     } finally {
       setLoading(false)
+    }
+  }
+  
+  const handleEdit = (id: number) => {
+    navigate(`/transactions/${id}/edit`)
+  }
+  
+  const handleDelete = async (id: number) => {
+    if (!confirm('이 거래내역을 삭제하시겠습니까?')) return
+    try {
+      await api.deleteTransaction(id)
+      loadData()
+    } catch (err) {
+      console.error('Failed to delete:', err)
+      alert('삭제에 실패했습니다.')
     }
   }
   
@@ -73,7 +90,11 @@ export default function Dashboard() {
       <div className={styles.transactionsSection}>
         <h3 className={styles.sectionTitle}>최근 거래</h3>
         {transactions.length > 0 ? (
-          <TransactionList transactions={transactions.slice(0, 10)} />
+          <TransactionList 
+            transactions={transactions.slice(0, 10)} 
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
         ) : (
           <div className={styles.empty}>
             <p>등록된 거래가 없습니다</p>
