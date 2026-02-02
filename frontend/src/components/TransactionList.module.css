@@ -79,13 +79,17 @@
   right: 0;
   top: 0;
   bottom: 0;
+  width: 70px;
   background: #ef4444;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   color: white;
-  min-width: 0;
-  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
 .item {
@@ -95,10 +99,14 @@
   padding: 14px 4px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
-  transition: transform 0.2s ease-out, background 0.2s;
   background: var(--bg-secondary);
   position: relative;
   z-index: 1;
+  touch-action: pan-y;
+}
+
+.itemAnimated {
+  transition: transform 0.2s ease-out;
 }
 
 .item:active {
