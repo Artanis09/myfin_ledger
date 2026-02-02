@@ -101,10 +101,10 @@ function TransactionItem({ tx, onEdit, onDelete }: {
   const time = tx.transaction_date.split('T')[1]?.slice(0, 5) || ''
   
   const [isOpen, setIsOpen] = useState(false)
-  const [currentX, setCurrentX] = useState(0)
+  const [translateX, setTranslateX] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
   const startX = useRef(0)
   const startY = useRef(0)
-  const isDragging = useRef(false)
   const isHorizontal = useRef<boolean | null>(null)
   
   const DELETE_BTN_WIDTH = 70
@@ -112,12 +112,12 @@ function TransactionItem({ tx, onEdit, onDelete }: {
   const handleTouchStart = (e: TouchEvent) => {
     startX.current = e.touches[0].clientX
     startY.current = e.touches[0].clientY
-    isDragging.current = true
+    setIsDragging(true)
     isHorizontal.current = null
   }
   
   const handleTouchMove = (e: TouchEvent) => {
-    if (!isDragging.current) return
+    if (!isDragging) return
     
     const touchX = e.touches[0].clientX
     const touchY = e.touches[0].clientY
@@ -137,59 +137,57 @@ function TransactionItem({ tx, onEdit, onDelete }: {
     // Calculate new position
     let newX: number
     if (isOpen) {
-      // Already open, allow closing
       newX = DELETE_BTN_WIDTH - diffX
     } else {
-      // Closed, allow opening
       newX = diffX
     }
     
-    // Clamp values
     newX = Math.max(0, Math.min(newX, DELETE_BTN_WIDTH))
-    setCurrentX(newX)
+    setTranslateX(newX)
   }
   
   const handleTouchEnd = () => {
-    isDragging.current = false
+    setIsDragging(false)
     isHorizontal.current = null
     
-    // Snap to open or closed
-    if (currentX > DELETE_BTN_WIDTH / 2) {
+    if (translateX > DELETE_BTN_WIDTH / 2) {
       setIsOpen(true)
-      setCurrentX(DELETE_BTN_WIDTH)
+      setTranslateX(DELETE_BTN_WIDTH)
     } else {
       setIsOpen(false)
-      setCurrentX(0)
+      setTranslateX(0)
     }
   }
   
   const handleItemClick = () => {
     if (isOpen) {
       setIsOpen(false)
-      setCurrentX(0)
-    } else if (currentX === 0) {
+      setTranslateX(0)
+    } else if (translateX === 0) {
       onEdit?.(tx.id)
     }
   }
   
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    onDelete?.(tx.id)
+  const handleDeleteClick = () => {
+    if (onDelete) {
+      onDelete(tx.id)
+    }
   }
   
-  const offset = isDragging.current ? currentX : (isOpen ? DELETE_BTN_WIDTH : 0)
+  const offset = isDragging ? translateX : (isOpen ? DELETE_BTN_WIDTH : 0)
   
   return (
     <div className={styles.swipeContainer}>
       <div 
         className={styles.deleteAction}
-        onClick={handleDeleteClick}
+        onTouchEnd={(e) => { e.stopPropagation(); handleDeleteClick(); }}
+        onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
       >
         <Trash2 size={20} />
         <span>삭제</span>
       </div>
       <div 
-        className={`${styles.item} ${isDragging.current ? '' : styles.itemAnimated}`}
+        className={`${styles.item} ${isDragging ? '' : styles.itemAnimated}`}
         style={{ transform: `translateX(-${offset}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

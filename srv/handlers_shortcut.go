@@ -60,10 +60,63 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("received SMS from shortcut", "text_length", len(req.Text))
 
-	// 3. Parse SMS
-	parsed := parseSMS(req.Text)
+	// 3. Split multiple SMS messages (separated by [Web발신])
+	smsTexts := splitMultipleSMS(req.Text)
+	slog.Info("split SMS messages", "count", len(smsTexts))
 
-	// 4. Create SMS log entry
+	var results []map[string]interface{}
+	var savedCount, errorCount int
+
+	for _, smsText := range smsTexts {
+		result := s.processSingleSMS(r.Context(), queries, smsText)
+		results = append(results, result)
+		if result["status"] == "saved" {
+			savedCount++
+		} else {
+			errorCount++
+		}
+	}
+
+	// 6. Return response
+	w.Header().Set("Content-Type", "application/json")
+	if len(results) == 1 {
+		json.NewEncoder(w).Encode(results[0])
+	} else {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":      "processed",
+			"total":       len(results),
+			"saved":       savedCount,
+			"errors":      errorCount,
+			"results":     results,
+		})
+	}
+}
+
+// splitMultipleSMS splits text containing multiple SMS messages
+func splitMultipleSMS(text string) []string {
+	// Split by [Web발신] pattern
+	parts := strings.Split(text, "[Web발신]")
+	var result []string
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			// Re-add the prefix for parsing
+			result = append(result, "[Web발신]\n"+part)
+		}
+	}
+	if len(result) == 0 {
+		// No [Web발신] found, treat as single message
+		return []string{text}
+	}
+	return result
+}
+
+// processSingleSMS processes a single SMS message and returns the result
+func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, smsText string) map[string]interface{} {
+	// Parse SMS
+	parsed := parseSMS(smsText)
+
+	// Create SMS log entry
 	var parsedCardName, parsedDescription, parsedDate *string
 	var parsedAmount *int64
 
@@ -80,8 +133,8 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 		parsedDate = &parsed.Date
 	}
 
-	smsLog, err := queries.CreateSMSLog(r.Context(), dbgen.CreateSMSLogParams{
-		RawText:           req.Text,
+	smsLog, err := queries.CreateSMSLog(ctx, dbgen.CreateSMSLogParams{
+		RawText:           smsText,
 		ParsedCardName:    parsedCardName,
 		ParsedAmount:      parsedAmount,
 		ParsedDescription: parsedDescription,
@@ -90,18 +143,17 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("failed to create SMS log", "error", err)
-		http.Error(w, `{"error": "failed to save SMS log"}`, http.StatusInternalServerError)
-		return
+		return map[string]interface{}{"status": "error", "error": "failed to save SMS log"}
 	}
 
-	// 5. Try to create transaction if parsing succeeded
+	// Try to create transaction if parsing succeeded
 	var transactionID *int64
 	var status = "parsed"
 	var errorMsg *string
 
 	if parsed.CardName != "" && parsed.Amount > 0 {
 		// Find card by name
-		card, err := queries.GetCardByName(r.Context(), parsed.CardName)
+		card, err := queries.GetCardByName(ctx, parsed.CardName)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				errStr := "card not found: " + parsed.CardName
@@ -130,7 +182,7 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 
 			// Find matching category
 			var categoryID *int64
-			categories, _ := queries.GetAllCategories(r.Context())
+			categories, _ := queries.GetAllCategories(ctx)
 			for _, cat := range categories {
 				keywords := strings.Split(cat.Keywords, ",")
 				for _, kw := range keywords {
@@ -157,7 +209,7 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 				originalAmount = &original
 			}
 
-			trans, err := queries.CreateTransaction(r.Context(), dbgen.CreateTransactionParams{
+			trans, err := queries.CreateTransaction(ctx, dbgen.CreateTransactionParams{
 				CardID:             card.ID,
 				CategoryID:         categoryID,
 				TransactionDate:    transDate,
@@ -190,17 +242,15 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update SMS log status
-	queries.UpdateSMSLogStatus(r.Context(), dbgen.UpdateSMSLogStatusParams{
+	queries.UpdateSMSLogStatus(ctx, dbgen.UpdateSMSLogStatusParams{
 		ID:            smsLog.ID,
 		Status:        status,
 		TransactionID: transactionID,
 		ErrorMessage:  errorMsg,
 	})
 
-	// 6. Return response
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"status":  status,
+	result := map[string]interface{}{
+		"status":     status,
 		"sms_log_id": smsLog.ID,
 		"parsed": map[string]interface{}{
 			"card_name":   parsed.CardName,
@@ -211,12 +261,12 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	if transactionID != nil {
-		response["transaction_id"] = *transactionID
+		result["transaction_id"] = *transactionID
 	}
 	if errorMsg != nil {
-		response["error"] = *errorMsg
+		result["error"] = *errorMsg
 	}
-	json.NewEncoder(w).Encode(response)
+	return result
 }
 
 // HandleGenerateAPIKey creates a new API key
