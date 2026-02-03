@@ -14,7 +14,13 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   // Dashboard
-  getDashboard: () => fetchJSON<any>('/dashboard'),
+  getDashboard: (year?: number, month?: number) => {
+    const params = new URLSearchParams()
+    if (year) params.set('year', year.toString())
+    if (month) params.set('month', month.toString())
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return fetchJSON<any>(`/dashboard${query}`)
+  },
   
   // Transactions
   getTransactions: () => fetchJSON<any>('/transactions'),

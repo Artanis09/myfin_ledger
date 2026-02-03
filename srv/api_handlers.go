@@ -2,6 +2,7 @@ package srv
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -38,10 +39,23 @@ func (s *Server) writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 // Dashboard API
+// GET /api/dashboard?year=2026&month=3
 func (s *Server) HandleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
 	ctx := r.Context()
-	now := time.Now()
+	
+	// Parse year/month from query params (결제예정월)
+	yearStr := r.URL.Query().Get("year")
+	monthStr := r.URL.Query().Get("month")
+	
+	year, _ := strconv.Atoi(yearStr)
+	month, _ := strconv.Atoi(monthStr)
+	if year == 0 {
+		year = time.Now().Year()
+	}
+	if month == 0 {
+		month = int(time.Now().Month())
+	}
 	
 	cards, _ := q.GetAllCards(ctx)
 	txns, _ := q.GetAllTransactions(ctx)
@@ -65,34 +79,33 @@ func (s *Server) HandleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 	var totalThisMonth int64
 	
 	for _, card := range cards {
-		start, end := calculateBillingPeriod(now, int(card.BillingStartDay), int(card.BillingEndDay))
+		// 결제예정월 기준으로 이용기간 계산
+		start, end := calculateBillingPeriodForMonth(year, month, int(card.BillingStartDay), int(card.BillingEndDay))
 		startStr := start.Format("2006-01-02")
 		endStr := end.Format("2006-01-02")
 		
 		var cardTotal int64
 		row := s.DB.QueryRowContext(ctx, `
 			SELECT COALESCE(SUM(amount), 0) FROM transactions 
-			WHERE card_id = ? AND substr(transaction_date, 1, 10) >= ? AND substr(transaction_date, 1, 10) < ?
+			WHERE card_id = ? AND substr(transaction_date, 1, 10) >= ? AND substr(transaction_date, 1, 10) <= ?
 		`, card.ID, startStr, endStr)
 		row.Scan(&cardTotal)
 		
-		if cardTotal > 0 {
-			billingPeriods = append(billingPeriods, BillingPeriodJSON{
-				CardName:  card.Name,
-				CardID:    card.ID,
-				StartDay:  card.BillingStartDay,
-				EndDay:    card.BillingEndDay,
-				StartDate: start.Format("01/02"),
-				EndDate:   end.Add(-24*time.Hour).Format("01/02"),
-				Total:     cardTotal,
-			})
-			totalThisMonth += cardTotal
-		}
+		billingPeriods = append(billingPeriods, BillingPeriodJSON{
+			CardName:  card.Name,
+			CardID:    card.ID,
+			StartDay:  card.BillingStartDay,
+			EndDay:    card.BillingEndDay,
+			StartDate: start.Format("01/02"),
+			EndDate:   end.Format("01/02"),
+			Total:     cardTotal,
+		})
+		totalThisMonth += cardTotal
 	}
 	
 	s.writeJSON(w, map[string]any{
 		"total_this_month":     totalThisMonth,
-		"current_month":        now.Format("2006년 01월"),
+		"current_month":        fmt.Sprintf("%d년 %02d월", year, month),
 		"billing_periods":      billingPeriods,
 		"recent_transactions":  recentTxns,
 	})

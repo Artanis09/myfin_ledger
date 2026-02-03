@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Trash2, Check } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import styles from './TransactionList.module.css'
 import type { Transaction } from '../types'
 
@@ -13,9 +13,6 @@ interface TransactionListProps {
 }
 
 export default function TransactionList({ transactions, onEdit, onDelete, grouped = true }: TransactionListProps) {
-  const [selectMode, setSelectMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  
   const formatMoney = (amount: number) => amount.toLocaleString() + '원'
   
   // Group by date
@@ -41,56 +38,19 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
     }
   }
   
-  const toggleSelect = (id: number) => {
-    const newSet = new Set(selectedIds)
-    if (newSet.has(id)) {
-      newSet.delete(id)
-    } else {
-      newSet.add(id)
-    }
-    setSelectedIds(newSet)
-  }
-  
-  const handleDelete = () => {
-    if (selectedIds.size === 0) return
-    onDelete?.([...selectedIds])
-    setSelectedIds(new Set())
-    setSelectMode(false)
-  }
-  
-  const cancelSelect = () => {
-    setSelectedIds(new Set())
-    setSelectMode(false)
-  }
-  
-  const selectAll = () => {
-    setSelectedIds(new Set(transactions.map(tx => tx.id)))
-  }
-  
-  const handleItemClick = (tx: Transaction) => {
-    if (selectMode) {
-      toggleSelect(tx.id)
-    } else {
-      onEdit?.(tx.id)
-    }
-  }
-  
-  const handleItemLongPress = (id: number) => {
-    setSelectMode(true)
-    setSelectedIds(new Set([id]))
+  const handleDelete = async (id: number) => {
+    onDelete?.([id])
   }
   
   if (!grouped) {
     return (
       <div className={styles.list}>
         {transactions.map(tx => (
-          <TransactionItem 
+          <SwipeableItem 
             key={tx.id} 
             tx={tx} 
-            onClick={() => handleItemClick(tx)}
-            onLongPress={() => handleItemLongPress(tx.id)}
-            selectMode={selectMode}
-            selected={selectedIds.has(tx.id)}
+            onEdit={() => onEdit?.(tx.id)}
+            onDelete={() => handleDelete(tx.id)}
           />
         ))}
       </div>
@@ -99,25 +59,6 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
   
   return (
     <div className={styles.container}>
-      {selectMode && (
-        <div className={styles.selectBar}>
-          <button onClick={cancelSelect} className={styles.cancelBtn}>취소</button>
-          <span className={styles.selectCount}>{selectedIds.size}건 선택</span>
-          <div className={styles.selectActions}>
-            <button onClick={selectAll} className={styles.selectAllBtn}>전체</button>
-            <button onClick={handleDelete} className={styles.deleteBtn} disabled={selectedIds.size === 0}>
-              <Trash2 size={18} /> 삭제
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {!selectMode && onDelete && (
-        <div className={styles.editBar}>
-          <button onClick={() => setSelectMode(true)} className={styles.editBtn}>선택</button>
-        </div>
-      )}
-      
       {sortedDates.map(date => {
         const { day, dayOfWeek, full } = formatDate(date)
         const dayTxs = groupedTx[date]
@@ -140,13 +81,11 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
             </div>
             <div className={styles.list}>
               {dayTxs.map(tx => (
-                <TransactionItem 
+                <SwipeableItem 
                   key={tx.id} 
                   tx={tx}
-                  onClick={() => handleItemClick(tx)}
-                  onLongPress={() => handleItemLongPress(tx.id)}
-                  selectMode={selectMode}
-                  selected={selectedIds.has(tx.id)}
+                  onEdit={() => onEdit?.(tx.id)}
+                  onDelete={() => handleDelete(tx.id)}
                 />
               ))}
             </div>
@@ -157,61 +96,117 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
   )
 }
 
-function TransactionItem({ tx, onClick, onLongPress, selectMode, selected }: { 
+function SwipeableItem({ tx, onEdit, onDelete }: { 
   tx: Transaction
-  onClick: () => void
-  onLongPress: () => void
-  selectMode: boolean
-  selected: boolean
+  onEdit: () => void
+  onDelete: () => void
 }) {
   const formatMoney = (amount: number) => amount.toLocaleString() + '원'
   const time = tx.transaction_date.split('T')[1]?.slice(0, 5) || ''
   
-  const [pressTimer, setPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [swiped, setSwiped] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const touchStartX = useRef(0)
+  const touchCurrentX = useRef(0)
+  const [translateX, setTranslateX] = useState(0)
+  const itemRef = useRef<HTMLDivElement>(null)
   
-  const handleTouchStart = () => {
-    const timer = setTimeout(() => {
-      onLongPress()
-    }, 500)
-    setPressTimer(timer)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchCurrentX.current = e.touches[0].clientX
+  }
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchCurrentX.current = e.touches[0].clientX
+    const diff = touchCurrentX.current - touchStartX.current
+    
+    // Only allow left swipe (negative diff)
+    if (diff < 0) {
+      const newTranslate = Math.max(diff, -80)
+      setTranslateX(newTranslate)
+    } else if (swiped) {
+      // If already swiped, allow closing
+      const newTranslate = Math.min(diff - 80, 0)
+      setTranslateX(newTranslate)
+    }
   }
   
   const handleTouchEnd = () => {
-    if (pressTimer) {
-      clearTimeout(pressTimer)
-      setPressTimer(null)
+    const diff = touchCurrentX.current - touchStartX.current
+    
+    if (diff < -40) {
+      // Swipe left threshold reached - show delete button
+      setTranslateX(-80)
+      setSwiped(true)
+    } else if (diff > 40 && swiped) {
+      // Swipe right to close
+      setTranslateX(0)
+      setSwiped(false)
+    } else {
+      // Reset to current state
+      setTranslateX(swiped ? -80 : 0)
+    }
+  }
+  
+  const handleClick = () => {
+    if (swiped) {
+      setTranslateX(0)
+      setSwiped(false)
+    } else {
+      onEdit()
+    }
+  }
+  
+  const handleDeleteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isDeleting) return
+    
+    setIsDeleting(true)
+    try {
+      await onDelete()
+    } finally {
+      setIsDeleting(false)
     }
   }
   
   return (
-    <div 
-      className={`${styles.item} ${selected ? styles.selected : ''}`}
-      onClick={onClick}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
-    >
-      {selectMode && (
-        <div className={`${styles.checkbox} ${selected ? styles.checked : ''}`}>
-          {selected && <Check size={14} />}
-        </div>
-      )}
-      <div className={styles.itemLeft}>
-        <span className={styles.category}>{tx.category_name || '기타'}</span>
-        <div className={styles.itemInfo}>
-          <span className={styles.description}>{tx.description}</span>
-          <span className={styles.meta}>
-            {time && `${time} · `}{tx.card_name}
-          </span>
-        </div>
+    <div className={styles.swipeWrapper}>
+      <div className={styles.deleteAction}>
+        <button 
+          className={styles.deleteBtn}
+          onClick={handleDeleteClick}
+          disabled={isDeleting}
+        >
+          <Trash2 size={20} />
+          <span>삭제</span>
+        </button>
       </div>
-      <div className={styles.itemRight}>
-        <span className={styles.amount}>{formatMoney(tx.amount)}</span>
-        {tx.is_installment === 1 && (
-          <span className={styles.installment}>
-            {tx.installment_current}/{tx.installment_months}개월
-          </span>
-        )}
+      <div 
+        ref={itemRef}
+        className={styles.item}
+        style={{ transform: `translateX(${translateX}px)` }}
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className={styles.itemLeft}>
+          <span className={styles.category}>{tx.category_name || '기타'}</span>
+          <div className={styles.itemInfo}>
+            <span className={styles.description}>{tx.description}</span>
+            <span className={styles.meta}>
+              {time && `${time} · `}{tx.card_name}
+            </span>
+          </div>
+        </div>
+        <div className={styles.itemRight}>
+          <span className={styles.amount}>{formatMoney(tx.amount)}</span>
+          {tx.is_installment === 1 && (
+            <span className={styles.installment}>
+              {tx.installment_current}/{tx.installment_months}개월
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )

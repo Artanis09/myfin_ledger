@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { addMonths, subMonths, startOfMonth, endOfMonth, format } from 'date-fns'
+import { addMonths, subMonths } from 'date-fns'
 import { Target, TrendingUp, TrendingDown, Edit2 } from 'lucide-react'
 import Header from '../components/Header'
 import MonthSummary from '../components/MonthSummary'
@@ -35,19 +35,16 @@ export default function Dashboard() {
     try {
       const year = currentMonth.getFullYear()
       const month = currentMonth.getMonth() + 1
-      const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
-      const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
       
-      const [dashData, txData, weekData, goalData] = await Promise.all([
-        api.getDashboard(),
-        api.getStatistics(start, end),
+      const [dashData, weekData, goalData] = await Promise.all([
+        api.getDashboard(year, month),
         api.getWeeklyStats(year, month),
         api.getGoal(year, month),
       ])
       
       setTransactions(dashData.recent_transactions || [])
       setBillingPeriods(dashData.billing_periods || [])
-      setTotalExpense(txData.total || 0)
+      setTotalExpense(dashData.total_this_month || 0)
       setWeeklyStats(weekData.weeks || [])
       setGoal(goalData.target_amount)
     } catch (err) {
