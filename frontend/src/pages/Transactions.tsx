@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addMonths, subMonths } from 'date-fns'
 import Header from '../components/Header'
@@ -45,11 +45,7 @@ export default function Transactions() {
   const [, setCards] = useState<Card[]>([])
   const [, setLoading] = useState(true)
   
-  useEffect(() => {
-    loadData()
-  }, [currentMonth])
-  
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [txData, cardData] = await Promise.all([
@@ -92,7 +88,19 @@ export default function Transactions() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentMonth])
+  
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+  
+  // Auto refresh every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadData()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [loadData])
   
   const handleEdit = (id: number) => {
     navigate(`/transactions/${id}/edit`)

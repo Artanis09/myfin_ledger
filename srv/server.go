@@ -69,6 +69,11 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	mux.HandleFunc("GET /api/statistics", s.HandleAPIStatistics)
 	mux.HandleFunc("POST /api/parse-sms", s.HandleAPIParseSMS)
 	
+	// Weekly stats and goals
+	mux.HandleFunc("GET /api/weekly-stats", s.HandleAPIWeeklyStats)
+	mux.HandleFunc("GET /api/goals", s.HandleAPIGetGoal)
+	mux.HandleFunc("POST /api/goals", s.HandleAPISetGoal)
+	
 	// iPhone Shortcut API routes
 	mux.HandleFunc("POST /api/shortcut/message", s.HandleShortcutMessage)
 	mux.HandleFunc("POST /api/shortcut/keys", s.HandleGenerateAPIKey)

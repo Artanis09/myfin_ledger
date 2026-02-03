@@ -11,6 +11,21 @@ import (
 	"srv.exe.dev/db/dbgen"
 )
 
+// WeeklyStats represents weekly spending statistics
+type WeeklyStats struct {
+	WeekStart   string           `json:"week_start"`
+	WeekEnd     string           `json:"week_end"`
+	WeekLabel   string           `json:"week_label"`
+	Total       int64            `json:"total"`
+	ByCard      []CardWeekTotal  `json:"by_card"`
+}
+
+type CardWeekTotal struct {
+	CardID   int64  `json:"card_id"`
+	CardName string `json:"card_name"`
+	Total    int64  `json:"total"`
+}
+
 func (s *Server) writeJSON(w http.ResponseWriter, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
@@ -496,4 +511,242 @@ func (s *Server) autoCategorize(ctx interface{ Done() <-chan struct{}; Deadline(
 	}
 	
 	return nil
+}
+
+// HandleAPIWeeklyStats returns weekly spending statistics
+// GET /api/weekly-stats?year=2026&month=3
+func (s *Server) HandleAPIWeeklyStats(w http.ResponseWriter, r *http.Request) {
+	yearStr := r.URL.Query().Get("year")
+	monthStr := r.URL.Query().Get("month")
+	
+	year, _ := strconv.Atoi(yearStr)
+	month, _ := strconv.Atoi(monthStr)
+	if year == 0 {
+		year = time.Now().Year()
+	}
+	if month == 0 {
+		month = int(time.Now().Month())
+	}
+	
+	// Get all cards for billing period calculation
+	q := dbgen.New(s.DB)
+	cards, err := q.GetAllCards(r.Context())
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
+	}
+	
+	// Calculate billing period for this month (결제예정월)
+	// Find the earliest start and latest end across all cards
+	var periodStart, periodEnd time.Time
+	for i, card := range cards {
+		start, end := calculateBillingPeriodForMonth(year, month, int(card.BillingStartDay), int(card.BillingEndDay))
+		if i == 0 || start.Before(periodStart) {
+			periodStart = start
+		}
+		if i == 0 || end.After(periodEnd) {
+			periodEnd = end
+		}
+	}
+	
+	// Get all transactions in this period
+	rows, err := s.DB.QueryContext(r.Context(), `
+		SELECT t.id, t.card_id, t.amount, t.transaction_date, c.name as card_name,
+		       c.billing_start_day, c.billing_end_day
+		FROM transactions t
+		JOIN cards c ON t.card_id = c.id
+		WHERE DATE(t.transaction_date) >= DATE(?) AND DATE(t.transaction_date) <= DATE(?)
+		ORDER BY t.transaction_date
+	`, periodStart.Format("2006-01-02"), periodEnd.Format("2006-01-02"))
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+	
+	// Group by week (Friday to Thursday, ending Friday)
+	type txData struct {
+		CardID    int64
+		CardName  string
+		Amount    int64
+		Date      time.Time
+		StartDay  int
+		EndDay    int
+	}
+	var transactions []txData
+	for rows.Next() {
+		var tx txData
+		var dateStr string
+		if err := rows.Scan(&tx.CardID, &tx.CardID, &tx.Amount, &dateStr, &tx.CardName, &tx.StartDay, &tx.EndDay); err != nil {
+			continue
+		}
+		tx.Date, _ = time.Parse("2006-01-02T15:04:05Z", dateStr)
+		if tx.Date.IsZero() {
+			tx.Date, _ = time.Parse("2006-01-02 15:04:05", dateStr)
+		}
+		
+		// Check if this transaction belongs to this billing month for its card
+		cardStart, cardEnd := calculateBillingPeriodForMonth(year, month, tx.StartDay, tx.EndDay)
+		if tx.Date.Before(cardStart) || tx.Date.After(cardEnd) {
+			continue
+		}
+		transactions = append(transactions, tx)
+	}
+	
+	// Generate weeks from period start to period end
+	var weeks []WeeklyStats
+	weekStart := periodStart
+	// Adjust to previous Friday if not Friday
+	for weekStart.Weekday() != time.Friday {
+		weekStart = weekStart.AddDate(0, 0, -1)
+	}
+	
+	for weekStart.Before(periodEnd) {
+		weekEnd := weekStart.AddDate(0, 0, 6) // Thursday
+		if weekEnd.After(periodEnd) {
+			weekEnd = periodEnd
+		}
+		
+		week := WeeklyStats{
+			WeekStart: weekStart.Format("2006-01-02"),
+			WeekEnd:   weekEnd.Format("2006-01-02"),
+			WeekLabel: weekStart.Format("01/02") + "~" + weekEnd.Format("01/02"),
+			ByCard:    []CardWeekTotal{},
+		}
+		
+		// Sum transactions for this week
+		cardTotals := make(map[int64]*CardWeekTotal)
+		for _, tx := range transactions {
+			if !tx.Date.Before(weekStart) && !tx.Date.After(weekEnd.Add(24*time.Hour)) {
+				week.Total += tx.Amount
+				if _, ok := cardTotals[tx.CardID]; !ok {
+					cardTotals[tx.CardID] = &CardWeekTotal{
+						CardID:   tx.CardID,
+						CardName: tx.CardName,
+					}
+				}
+				cardTotals[tx.CardID].Total += tx.Amount
+			}
+		}
+		
+		for _, ct := range cardTotals {
+			week.ByCard = append(week.ByCard, *ct)
+		}
+		
+		weeks = append(weeks, week)
+		weekStart = weekStart.AddDate(0, 0, 7)
+	}
+	
+	s.writeJSON(w, map[string]interface{}{
+		"year":         year,
+		"month":        month,
+		"period_start": periodStart.Format("2006-01-02"),
+		"period_end":   periodEnd.Format("2006-01-02"),
+		"weeks":        weeks,
+	})
+}
+
+// calculateBillingPeriodForMonth calculates the billing period for a given month
+func calculateBillingPeriodForMonth(year, month, startDay, endDay int) (time.Time, time.Time) {
+	if startDay <= endDay {
+		// Same month billing (e.g., 1~31)
+		prevMonth := month - 1
+		prevYear := year
+		if prevMonth == 0 {
+			prevMonth = 12
+			prevYear--
+		}
+		start := time.Date(prevYear, time.Month(prevMonth), startDay, 0, 0, 0, 0, time.Local)
+		end := time.Date(prevYear, time.Month(prevMonth), endDay, 23, 59, 59, 0, time.Local)
+		return start, end
+	}
+	
+	// Cross-month billing (e.g., 23~22)
+	startMonth := month - 2
+	startYear := year
+	if startMonth <= 0 {
+		startMonth += 12
+		startYear--
+	}
+	endMonth := month - 1
+	endYear := year
+	if endMonth <= 0 {
+		endMonth += 12
+		endYear--
+	}
+	
+	start := time.Date(startYear, time.Month(startMonth), startDay, 0, 0, 0, 0, time.Local)
+	end := time.Date(endYear, time.Month(endMonth), endDay, 23, 59, 59, 0, time.Local)
+	return start, end
+}
+
+// HandleAPIGetGoal returns monthly spending goal
+// GET /api/goals?year=2026&month=3
+func (s *Server) HandleAPIGetGoal(w http.ResponseWriter, r *http.Request) {
+	yearStr := r.URL.Query().Get("year")
+	monthStr := r.URL.Query().Get("month")
+	
+	year, _ := strconv.Atoi(yearStr)
+	month, _ := strconv.Atoi(monthStr)
+	if year == 0 {
+		year = time.Now().Year()
+	}
+	if month == 0 {
+		month = int(time.Now().Month())
+	}
+	
+	q := dbgen.New(s.DB)
+	goal, err := q.GetMonthlyGoal(r.Context(), dbgen.GetMonthlyGoalParams{
+		Year:  int64(year),
+		Month: int64(month),
+	})
+	if err != nil {
+		// No goal set
+		s.writeJSON(w, map[string]interface{}{
+			"year":          year,
+			"month":         month,
+			"target_amount": nil,
+		})
+		return
+	}
+	
+	s.writeJSON(w, map[string]interface{}{
+		"year":          goal.Year,
+		"month":         goal.Month,
+		"target_amount": goal.TargetAmount,
+	})
+}
+
+// HandleAPISetGoal sets monthly spending goal
+// POST /api/goals
+func (s *Server) HandleAPISetGoal(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Year         int   `json:"year"`
+		Month        int   `json:"month"`
+		TargetAmount int64 `json:"target_amount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, 400, "invalid request")
+		return
+	}
+	
+	if req.Year == 0 {
+		req.Year = time.Now().Year()
+	}
+	if req.Month == 0 {
+		req.Month = int(time.Now().Month())
+	}
+	
+	q := dbgen.New(s.DB)
+	goal, err := q.SetMonthlyGoal(r.Context(), dbgen.SetMonthlyGoalParams{
+		Year:         int64(req.Year),
+		Month:        int64(req.Month),
+		TargetAmount: req.TargetAmount,
+	})
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
+	}
+	
+	s.writeJSON(w, goal)
 }

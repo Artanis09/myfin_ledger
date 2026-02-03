@@ -38,6 +38,14 @@ type Migration struct {
 	ExecutedAt      time.Time `json:"executed_at"`
 }
 
+type MonthlyGoal struct {
+	ID           int64     `json:"id"`
+	Year         int64     `json:"year"`
+	Month        int64     `json:"month"`
+	TargetAmount int64     `json:"target_amount"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type SmsLog struct {
 	ID                int64     `json:"id"`
 	RawText           string    `json:"raw_text"`

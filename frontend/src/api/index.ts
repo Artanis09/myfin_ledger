@@ -69,6 +69,19 @@ export const api = {
     body: JSON.stringify({ text }),
   }),
   
+  // Weekly Stats
+  getWeeklyStats: (year: number, month: number) => 
+    fetchJSON<any>(`/weekly-stats?year=${year}&month=${month}`),
+  
+  // Goals
+  getGoal: (year: number, month: number) => 
+    fetchJSON<any>(`/goals?year=${year}&month=${month}`),
+  setGoal: (year: number, month: number, targetAmount: number) => 
+    fetchJSON<any>('/goals', {
+      method: 'POST',
+      body: JSON.stringify({ year, month, target_amount: targetAmount }),
+    }),
+  
   // iPhone Shortcut API
   getAPIKeys: () => fetchJSON<any[]>('/shortcut/keys'),
   createAPIKey: (name: string) => fetchJSON<{ api_key: string; name: string }>('/shortcut/keys', {
