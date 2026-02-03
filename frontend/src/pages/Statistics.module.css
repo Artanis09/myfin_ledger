@@ -39,6 +39,10 @@
   margin-bottom: 16px;
 }
 
+.chartContainerSmall {
+  margin-bottom: 8px;
+}
+
 .categoryList {
   display: flex;
   flex-direction: column;

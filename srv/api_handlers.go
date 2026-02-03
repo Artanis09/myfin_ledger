@@ -674,7 +674,7 @@ func (s *Server) HandleAPIWeeklyStats(w http.ResponseWriter, r *http.Request) {
 		       c.billing_start_day, c.billing_end_day
 		FROM transactions t
 		JOIN cards c ON t.card_id = c.id
-		WHERE DATE(t.transaction_date) >= DATE(?) AND DATE(t.transaction_date) <= DATE(?)
+		WHERE substr(t.transaction_date, 1, 10) >= ? AND substr(t.transaction_date, 1, 10) <= ?
 		ORDER BY t.transaction_date
 	`, periodStart.Format("2006-01-02"), periodEnd.Format("2006-01-02"))
 	if err != nil {
@@ -696,12 +696,19 @@ func (s *Server) HandleAPIWeeklyStats(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var tx txData
 		var dateStr string
-		if err := rows.Scan(&tx.CardID, &tx.CardID, &tx.Amount, &dateStr, &tx.CardName, &tx.StartDay, &tx.EndDay); err != nil {
+		var txID int64
+		if err := rows.Scan(&txID, &tx.CardID, &tx.Amount, &dateStr, &tx.CardName, &tx.StartDay, &tx.EndDay); err != nil {
 			continue
 		}
 		tx.Date, _ = time.Parse("2006-01-02T15:04:05Z", dateStr)
 		if tx.Date.IsZero() {
 			tx.Date, _ = time.Parse("2006-01-02 15:04:05", dateStr)
+		}
+		if tx.Date.IsZero() {
+			tx.Date, _ = time.Parse("2006-01-02 15:04:05 -0700 MST", dateStr)
+		}
+		if tx.Date.IsZero() {
+			tx.Date, _ = time.Parse("2006-01-02 15:04:05 +0000 UTC", dateStr)
 		}
 		
 		// Check if this transaction belongs to this billing month for its card
