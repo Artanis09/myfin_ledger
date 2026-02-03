@@ -198,10 +198,25 @@ func (s *Server) HandleAPIUpdateTransaction(w http.ResponseWriter, r *http.Reque
 
 func (s *Server) HandleAPIDeleteTransaction(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, _ := strconv.ParseInt(idStr, 10, 64)
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		s.writeError(w, 400, "invalid id")
+		return
+	}
 	
-	q := dbgen.New(s.DB)
-	q.DeleteTransaction(r.Context(), id)
+	// Clear foreign key reference in sms_logs first
+	_, err = s.DB.ExecContext(r.Context(), "UPDATE sms_logs SET transaction_id = NULL WHERE transaction_id = ?", id)
+	if err != nil {
+		slog.Error("failed to clear sms_logs reference", "id", id, "error", err)
+	}
+	
+	// Delete transaction
+	_, err = s.DB.ExecContext(r.Context(), "DELETE FROM transactions WHERE id = ?", id)
+	if err != nil {
+		slog.Error("failed to delete transaction", "id", id, "error", err)
+		s.writeError(w, 500, err.Error())
+		return
+	}
 	s.writeJSON(w, map[string]string{"status": "ok"})
 }
 

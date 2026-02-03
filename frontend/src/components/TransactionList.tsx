@@ -53,11 +53,9 @@ export default function TransactionList({ transactions, onEdit, onDelete, groupe
   
   const handleDelete = () => {
     if (selectedIds.size === 0) return
-    if (confirm(`${selectedIds.size}건을 삭제하시겠습니까?`)) {
-      onDelete?.([...selectedIds])
-      setSelectedIds(new Set())
-      setSelectMode(false)
-    }
+    onDelete?.([...selectedIds])
+    setSelectedIds(new Set())
+    setSelectMode(false)
   }
   
   const cancelSelect = () => {
