@@ -17,6 +17,7 @@ type ParsedSMS struct {
 	Time        string `json:"time"`
 	IsInstallment     bool  `json:"is_installment"`
 	InstallmentMonths int64 `json:"installment_months"`
+	IsCancelled       bool  `json:"is_cancelled"`
 }
 
 func (s *Server) HandleParseSMS(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +129,11 @@ func parseSMS(text string) ParsedSMS {
 				}
 			}
 		}
+	}
+	
+	// Check for cancellation
+	if strings.Contains(text, "취소") {
+		result.IsCancelled = true
 	}
 	
 	return result

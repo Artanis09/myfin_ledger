@@ -213,17 +213,38 @@
   color: #10b981;
 }
 
+/* 예상 결제 금액 - 상단 헤더 스타일 */
 .billingSection {
-  padding: 16px 20px;
-  background: var(--bg-secondary);
-  margin-top: 8px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f1f33 100%);
+  padding: 20px;
+  margin: 0;
 }
 
-.sectionTitle {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
+.billingHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.billingIcon {
+  color: #60a5fa;
+}
+
+.billingHeaderInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.billingTitle {
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+
+.billingTotal {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
 }
 
 .billingList {
@@ -236,9 +257,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: var(--bg-tertiary);
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.08);
   border-radius: 12px;
+  backdrop-filter: blur(10px);
 }
 
 .billingInfo {
@@ -249,18 +271,33 @@
 .billingCard {
   font-size: 14px;
   font-weight: 500;
+  color: white;
 }
 
 .billingPeriod {
   font-size: 12px;
-  color: var(--text-tertiary);
+  color: rgba(255,255,255,0.5);
   margin-top: 2px;
 }
 
 .billingAmount {
   font-size: 16px;
   font-weight: 600;
-  color: var(--expense-color);
+  color: #f472b6;
+}
+
+.noBilling {
+  text-align: center;
+  padding: 20px;
+  color: rgba(255,255,255,0.5);
+  font-size: 14px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
 }
 
 .transactionsSection {

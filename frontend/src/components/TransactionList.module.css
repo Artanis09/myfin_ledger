@@ -184,3 +184,23 @@
   color: var(--text-tertiary);
   margin-top: 2px;
 }
+
+/* 취소 거래 스타일 */
+.cancelledBadge {
+  display: inline-block;
+  padding: 2px 6px;
+  background: #ef4444;
+  color: white;
+  font-size: 10px;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+
+.cancelled {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.cancelledAmount {
+  color: #10b981 !important;
+}

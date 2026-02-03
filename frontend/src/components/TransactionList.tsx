@@ -191,16 +191,23 @@ function SwipeableItem({ tx, onEdit, onDelete }: {
         onTouchEnd={handleTouchEnd}
       >
         <div className={styles.itemLeft}>
-          <span className={styles.category}>{tx.category_name || '기타'}</span>
+          <span className={styles.category}>
+            {tx.is_cancelled === 1 && <span className={styles.cancelledBadge}>취소</span>}
+            {tx.category_name || '기타'}
+          </span>
           <div className={styles.itemInfo}>
-            <span className={styles.description}>{tx.description}</span>
+            <span className={`${styles.description} ${tx.is_cancelled === 1 ? styles.cancelled : ''}`}>
+              {tx.description}
+            </span>
             <span className={styles.meta}>
               {time && `${time} · `}{tx.card_name}
             </span>
           </div>
         </div>
         <div className={styles.itemRight}>
-          <span className={styles.amount}>{formatMoney(tx.amount)}</span>
+          <span className={`${styles.amount} ${tx.is_cancelled === 1 ? styles.cancelledAmount : ''}`}>
+            {tx.is_cancelled === 1 ? '-' : ''}{formatMoney(tx.amount)}
+          </span>
           {tx.is_installment === 1 && (
             <span className={styles.installment}>
               {tx.installment_current}/{tx.installment_months}개월

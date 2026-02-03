@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addMonths, subMonths } from 'date-fns'
-import { Target, TrendingUp, TrendingDown, Edit2 } from 'lucide-react'
+import { Target, TrendingUp, TrendingDown, Edit2, CreditCard } from 'lucide-react'
 import Header from '../components/Header'
-import MonthSummary from '../components/MonthSummary'
 import TransactionList from '../components/TransactionList'
 import FloatingButton from '../components/FloatingButton'
 import { api } from '../api'
@@ -18,12 +17,18 @@ interface WeekData {
   by_card: { card_id: number; card_name: string; total: number }[]
 }
 
+// 매달 1일이면 다음달(결제예정월)을 기본으로 표시
+function getDefaultMonth() {
+  const now = new Date()
+  // 항상 다음 달(결제예정월)을 기본으로
+  return addMonths(now, 1)
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [currentMonth, setCurrentMonth] = useState(getDefaultMonth)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [billingPeriods, setBillingPeriods] = useState<BillingPeriod[]>([])
-  const [, setTotalExpense] = useState(0)
   const [weeklyStats, setWeeklyStats] = useState<WeekData[]>([])
   const [goal, setGoal] = useState<number | null>(null)
   const [showGoalInput, setShowGoalInput] = useState(false)
@@ -44,7 +49,6 @@ export default function Dashboard() {
       
       setTransactions(dashData.recent_transactions || [])
       setBillingPeriods(dashData.billing_periods || [])
-      setTotalExpense(dashData.total_this_month || 0)
       setWeeklyStats(weekData.weeks || [])
       setGoal(goalData.target_amount)
     } catch (err) {
@@ -113,7 +117,36 @@ export default function Dashboard() {
         onNextMonth={() => setCurrentMonth(prev => addMonths(prev, 1))}
       />
       
-      <MonthSummary income={0} expense={totalBilling} />
+      {/* 예상 결제 금액 - 최상단 배치 */}
+      <div className={styles.billingSection}>
+        <div className={styles.billingHeader}>
+          <CreditCard size={20} className={styles.billingIcon} />
+          <div className={styles.billingHeaderInfo}>
+            <span className={styles.billingTitle}>예상 결제 금액</span>
+            <span className={styles.billingTotal}>{totalBilling.toLocaleString()}원</span>
+          </div>
+        </div>
+        
+        {billingPeriods.length > 0 ? (
+          <div className={styles.billingList}>
+            {billingPeriods.map(bp => (
+              <div key={bp.card_id} className={styles.billingItem}>
+                <div className={styles.billingInfo}>
+                  <span className={styles.billingCard}>{bp.card_name}</span>
+                  <span className={styles.billingPeriod}>{bp.start_date}~{bp.end_date}</span>
+                </div>
+                <span className={styles.billingAmount}>
+                  {bp.total.toLocaleString()}원
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.noBilling}>
+            <p>이 달 결제 예정 내역이 없습니다</p>
+          </div>
+        )}
+      </div>
       
       {/* 월 소비 목표 */}
       <div className={styles.goalSection}>
@@ -200,26 +233,6 @@ export default function Dashboard() {
                 </div>
               )
             })}
-          </div>
-        </div>
-      )}
-      
-      {/* 예상 결제 금액 */}
-      {billingPeriods.length > 0 && (
-        <div className={styles.billingSection}>
-          <h3 className={styles.sectionTitle}>예상 결제 금액</h3>
-          <div className={styles.billingList}>
-            {billingPeriods.map(bp => (
-              <div key={bp.card_id} className={styles.billingItem}>
-                <div className={styles.billingInfo}>
-                  <span className={styles.billingCard}>{bp.card_name}</span>
-                  <span className={styles.billingPeriod}>{bp.start_date}~{bp.end_date}</span>
-                </div>
-                <span className={styles.billingAmount}>
-                  {bp.total.toLocaleString()}원
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       )}

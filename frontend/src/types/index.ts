@@ -24,6 +24,7 @@ export interface Transaction {
   installment_months: number | null
   installment_current: number | null
   original_amount: number | null
+  is_cancelled: number
 }
 
 export interface BillingPeriod {
@@ -70,4 +71,5 @@ export interface ParsedSMS {
   time: string
   is_installment: boolean
   installment_months: number
+  is_cancelled: boolean
 }

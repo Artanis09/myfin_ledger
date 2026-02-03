@@ -116,7 +116,13 @@ export default function Transactions() {
     }
   }
   
-  const totalExpense = transactions.reduce((sum, tx) => sum + tx.amount, 0)
+  const totalExpense = transactions.reduce((sum, tx) => {
+    // 취소 거래는 마이너스로 계산
+    if (tx.is_cancelled === 1) {
+      return sum - tx.amount
+    }
+    return sum + tx.amount
+  }, 0)
   
   return (
     <div className={styles.page}>

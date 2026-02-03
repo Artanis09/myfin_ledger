@@ -240,6 +240,11 @@ func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, s
 				originalAmount = &original
 			}
 
+			var isCancelled int64 = 0
+			if parsed.IsCancelled {
+				isCancelled = 1
+			}
+			
 			trans, err := queries.CreateTransaction(ctx, dbgen.CreateTransactionParams{
 				CardID:             card.ID,
 				CategoryID:         categoryID,
@@ -250,6 +255,7 @@ func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, s
 				InstallmentMonths:  installmentMonths,
 				InstallmentCurrent: installmentCurrent,
 				OriginalAmount:     originalAmount,
+				IsCancelled:        isCancelled,
 			})
 			if err != nil {
 				slog.Error("failed to create transaction", "error", err)

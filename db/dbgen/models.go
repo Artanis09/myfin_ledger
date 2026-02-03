@@ -71,6 +71,7 @@ type Transaction struct {
 	InstallmentCurrent *int64    `json:"installment_current"`
 	OriginalAmount     *int64    `json:"original_amount"`
 	CreatedAt          time.Time `json:"created_at"`
+	IsCancelled        int64     `json:"is_cancelled"`
 }
 
 type Visitor struct {

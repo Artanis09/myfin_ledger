@@ -84,12 +84,80 @@ func (s *Server) HandleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 		startStr := start.Format("2006-01-02")
 		endStr := end.Format("2006-01-02")
 		
+		// Calculate card total including:
+		// 1. Regular transactions (non-installment)
+		// 2. Installment transactions - monthly payment amount
+		// 3. Cancelled transactions - subtract from total
 		var cardTotal int64
+		
+		// Query for non-cancelled, non-installment transactions in this period
 		row := s.DB.QueryRowContext(ctx, `
 			SELECT COALESCE(SUM(amount), 0) FROM transactions 
-			WHERE card_id = ? AND substr(transaction_date, 1, 10) >= ? AND substr(transaction_date, 1, 10) <= ?
+			WHERE card_id = ? 
+			AND substr(transaction_date, 1, 10) >= ? 
+			AND substr(transaction_date, 1, 10) <= ?
+			AND is_cancelled = 0
+			AND is_installment = 0
 		`, card.ID, startStr, endStr)
 		row.Scan(&cardTotal)
+		
+		// Add installment transactions for this billing month
+		// An installment tx should be charged if:
+		// - Current installment_current <= this billing month's offset from original tx month
+		// - AND it hasn't been fully paid (installment_current < installment_months)
+		rows, err := s.DB.QueryContext(ctx, `
+			SELECT amount, installment_months, installment_current, transaction_date 
+			FROM transactions 
+			WHERE card_id = ? 
+			AND is_cancelled = 0 
+			AND is_installment = 1
+		`, card.ID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var amount, months, current int64
+				var txDateStr string
+				if err := rows.Scan(&amount, &months, &current, &txDateStr); err != nil {
+					continue
+				}
+				
+				// Parse original transaction date
+				txDate, _ := time.Parse("2006-01-02T15:04:05Z", txDateStr)
+				if txDate.IsZero() {
+					txDate, _ = time.Parse("2006-01-02 15:04:05", txDateStr)
+				}
+				
+				// Calculate which installment month this billing month corresponds to
+				// The first installment is charged in the billing month following the tx
+				txBillingMonth := getNextBillingMonth(txDate, int(card.BillingStartDay), int(card.BillingEndDay))
+				targetBillingMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+				
+				// Calculate months difference
+				monthsDiff := (targetBillingMonth.Year()-txBillingMonth.Year())*12 + int(targetBillingMonth.Month()-txBillingMonth.Month())
+				installmentNum := monthsDiff + 1 // 1-indexed
+				
+				// If this billing month falls within the installment period
+				if installmentNum >= 1 && installmentNum <= int(months) {
+					cardTotal += amount // amount is already monthly payment
+				}
+			}
+		}
+		
+		// Subtract cancelled transactions
+		var cancelledTotal int64
+		row = s.DB.QueryRowContext(ctx, `
+			SELECT COALESCE(SUM(amount), 0) FROM transactions 
+			WHERE card_id = ? 
+			AND substr(transaction_date, 1, 10) >= ? 
+			AND substr(transaction_date, 1, 10) <= ?
+			AND is_cancelled = 1
+		`, card.ID, startStr, endStr)
+		row.Scan(&cancelledTotal)
+		cardTotal -= cancelledTotal
+		
+		if cardTotal < 0 {
+			cardTotal = 0
+		}
 		
 		billingPeriods = append(billingPeriods, BillingPeriodJSON{
 			CardName:  card.Name,
@@ -103,12 +171,46 @@ func (s *Server) HandleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 		totalThisMonth += cardTotal
 	}
 	
+	// Filter to only show cards with non-zero totals
+	var activeBillingPeriods []BillingPeriodJSON
+	for _, bp := range billingPeriods {
+		if bp.Total > 0 {
+			activeBillingPeriods = append(activeBillingPeriods, bp)
+		}
+	}
+	
 	s.writeJSON(w, map[string]any{
 		"total_this_month":     totalThisMonth,
 		"current_month":        fmt.Sprintf("%d년 %02d월", year, month),
-		"billing_periods":      billingPeriods,
+		"billing_periods":      activeBillingPeriods,
 		"recent_transactions":  recentTxns,
 	})
+}
+
+// getNextBillingMonth returns the billing month for a transaction
+func getNextBillingMonth(txDate time.Time, startDay, endDay int) time.Time {
+	year := txDate.Year()
+	month := int(txDate.Month())
+	day := txDate.Day()
+	
+	if startDay <= endDay {
+		// Same month billing (e.g., 1~31)
+		if day <= endDay {
+			return time.Date(year, time.Month(month+1), 1, 0, 0, 0, 0, time.Local)
+		}
+		return time.Date(year, time.Month(month+2), 1, 0, 0, 0, 0, time.Local)
+	}
+	
+	// Cross-month billing (e.g., 23~22)
+	if day >= startDay {
+		// Transaction in first part of billing period
+		return time.Date(year, time.Month(month+2), 1, 0, 0, 0, 0, time.Local)
+	} else if day <= endDay {
+		// Transaction in second part of billing period
+		return time.Date(year, time.Month(month+1), 1, 0, 0, 0, 0, time.Local)
+	}
+	// Outside billing period - shouldn't happen
+	return time.Date(year, time.Month(month+1), 1, 0, 0, 0, 0, time.Local)
 }
 
 // Transactions API
@@ -146,6 +248,7 @@ func (s *Server) HandleAPICreateTransaction(w http.ResponseWriter, r *http.Reque
 		InstallmentMonths *int64 `json:"installment_months"`
 		InstallmentCurrent *int64 `json:"installment_current"`
 		OriginalAmount    *int64 `json:"original_amount"`
+		IsCancelled       int64  `json:"is_cancelled"`
 	}
 	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -173,6 +276,7 @@ func (s *Server) HandleAPICreateTransaction(w http.ResponseWriter, r *http.Reque
 		InstallmentMonths: req.InstallmentMonths,
 		InstallmentCurrent: req.InstallmentCurrent,
 		OriginalAmount:    req.OriginalAmount,
+		IsCancelled:       req.IsCancelled,
 	})
 	if err != nil {
 		s.writeError(w, 500, err.Error())
@@ -195,6 +299,7 @@ func (s *Server) HandleAPIUpdateTransaction(w http.ResponseWriter, r *http.Reque
 		InstallmentMonths *int64 `json:"installment_months"`
 		InstallmentCurrent *int64 `json:"installment_current"`
 		OriginalAmount    *int64 `json:"original_amount"`
+		IsCancelled       int64  `json:"is_cancelled"`
 	}
 	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -216,6 +321,7 @@ func (s *Server) HandleAPIUpdateTransaction(w http.ResponseWriter, r *http.Reque
 		InstallmentMonths: req.InstallmentMonths,
 		InstallmentCurrent: req.InstallmentCurrent,
 		OriginalAmount:    req.OriginalAmount,
+		IsCancelled:       req.IsCancelled,
 	})
 	if err != nil {
 		s.writeError(w, 500, err.Error())

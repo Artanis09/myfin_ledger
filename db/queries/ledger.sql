@@ -34,8 +34,8 @@ DELETE FROM categories WHERE id = ?;
 -- name: CreateTransaction :one
 INSERT INTO transactions (
     card_id, category_id, transaction_date, description, amount,
-    is_installment, installment_months, installment_current, original_amount
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    is_installment, installment_months, installment_current, original_amount, is_cancelled
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetTransaction :one
@@ -45,7 +45,7 @@ SELECT * FROM transactions WHERE id = ?;
 UPDATE transactions SET 
     card_id = ?, category_id = ?, transaction_date = ?, description = ?,
     amount = ?, is_installment = ?, installment_months = ?, 
-    installment_current = ?, original_amount = ?
+    installment_current = ?, original_amount = ?, is_cancelled = ?
 WHERE id = ?;
 
 -- name: DeleteTransaction :exec
