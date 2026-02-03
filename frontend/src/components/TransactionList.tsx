@@ -10,20 +10,37 @@ interface TransactionListProps {
   onEdit?: (id: number) => void
   onDelete?: (ids: number[]) => void
   grouped?: boolean
+  sortBy?: string
 }
 
-export default function TransactionList({ transactions, onEdit, onDelete, grouped = true }: TransactionListProps) {
+export default function TransactionList({ transactions, onEdit, onDelete, grouped = true, sortBy = 'date-desc' }: TransactionListProps) {
   const formatMoney = (amount: number) => amount.toLocaleString() + '원'
   
-  // Group by date
-  const groupedTx = transactions.reduce((acc, tx) => {
-    const date = tx.transaction_date.split('T')[0]
-    if (!acc[date]) acc[date] = []
-    acc[date].push(tx)
-    return acc
-  }, {} as Record<string, Transaction[]>)
+  // Group by date while preserving the order from parent (for date-based sorting)
+  // For amount-based sorting, we don't group
+  const isDateSort = sortBy.startsWith('date');
   
-  const sortedDates = Object.keys(groupedTx).sort((a, b) => b.localeCompare(a))
+  // Group by date - preserve order of first appearance
+  const groupedTx: Record<string, Transaction[]> = {};
+  const dateOrder: string[] = [];
+  
+  transactions.forEach(tx => {
+    const date = tx.transaction_date.split('T')[0];
+    if (!groupedTx[date]) {
+      groupedTx[date] = [];
+      dateOrder.push(date);
+    }
+    groupedTx[date].push(tx);
+  });
+  
+  // For date sorting, use the preserved order; for amount sorting, sort dates by first tx amount
+  const sortedDates = isDateSort 
+    ? dateOrder  // Already in correct order from parent
+    : dateOrder.sort((a, b) => {
+        const amountA = groupedTx[a][0]?.amount || 0;
+        const amountB = groupedTx[b][0]?.amount || 0;
+        return sortBy === 'amount-desc' ? amountB - amountA : amountA - amountB;
+      })
   
   const getDayTotal = (txs: Transaction[]) => {
     return txs.reduce((sum, tx) => sum + tx.amount, 0)
@@ -191,17 +208,27 @@ function SwipeableItem({ tx, onEdit, onDelete }: {
         onTouchEnd={handleTouchEnd}
       >
         <div className={styles.itemLeft}>
-          <span className={styles.category}>
-            {tx.is_cancelled === 1 && <span className={styles.cancelledBadge}>취소</span>}
-            {tx.category_name || '기타'}
-          </span>
+          <div className={styles.categoryIcon}>
+            {tx.category_name ? tx.category_name[0] : '기'}
+          </div>
           <div className={styles.itemInfo}>
-            <span className={`${styles.description} ${tx.is_cancelled === 1 ? styles.cancelled : ''}`}>
-              {tx.description}
-            </span>
-            <span className={styles.meta}>
-              {time && `${time} · `}{tx.card_name}
-            </span>
+            <div className={styles.descriptionRow}>
+              {tx.is_cancelled === 1 && <span className={styles.cancelledBadge}>취소</span>}
+              <span className={`${styles.description} ${tx.is_cancelled === 1 ? styles.cancelled : ''}`}>
+                {tx.description}
+              </span>
+            </div>
+            <div className={styles.meta}>
+              <span className={styles.categoryName}>{tx.category_name || '기타'}</span>
+              <span className={styles.dot}>•</span>
+              <span className={styles.time}>{time}</span>
+              {tx.card_name && (
+                <>
+                  <span className={styles.dot}>•</span>
+                  <span className={styles.cardInfo}>{tx.card_name}</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className={styles.itemRight}>

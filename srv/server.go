@@ -48,6 +48,10 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	mux := http.NewServeMux()
 	
 	// API routes
+	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("GET /api/dashboard", s.HandleAPIDashboard)
 	
 	mux.HandleFunc("GET /api/transactions", s.HandleAPIGetTransactions)

@@ -1,36 +1,68 @@
 .header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
+  flex-direction: column;
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
   z-index: 50;
 }
 
-.title {
+.safeArea {
+  height: env(safe-area-inset-top, 0px);
+  min-height: env(safe-area-inset-top, 0px);
+  background: var(--bg-secondary);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px 4px;
+  position: relative;
+}
+
+.pageTitle {
   font-size: 18px;
   font-weight: 600;
-  flex: 1;
-  text-align: center;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.monthRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px 12px;
+}
+
+.monthText {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 0 8px;
 }
 
 .navBtn {
   background: none;
   border: none;
-  padding: 8px;
-  color: var(--text-primary);
+  padding: 6px;
+  color: var(--accent-color);
   border-radius: 8px;
-  transition: background 0.2s;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .navBtn:active {
   background: var(--bg-tertiary);
+  transform: scale(0.92);
 }
 
 .rightAction {
+  position: absolute;
+  right: 16px;
   display: flex;
   align-items: center;
+  gap: 8px;
 }

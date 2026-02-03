@@ -1,36 +1,75 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Light mode */
-  --bg-primary: #f8f9fa;
+  /* Light mode - Warm Orange Theme */
+  --bg-primary: #faf8f5;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f3f5;
-  --text-primary: #212529;
-  --text-secondary: #495057;
-  --text-tertiary: #868e96;
-  --border-color: #e9ecef;
-  --income-color: #339af0;
-  --expense-color: #ff6b6b;
-  --accent-color: #ff6b6b;
-  --success-color: #51cf66;
-  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --modal-overlay: rgba(0, 0, 0, 0.5);
+  --bg-tertiary: #f5f2ed;
+  --bg-card: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #5c5c5c;
+  --text-tertiary: #8a8a8a;
+  --border-color: #e8e4de;
+  --income-color: #2ecc71;
+  --expense-color: #e74c3c;
+  --accent-color: #ff9500;
+  --accent-secondary: #ff6b35;
+  --success-color: #2ecc71;
+  --warning-color: #f39c12;
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --modal-overlay: rgba(0, 0, 0, 0.4);
+  
+  /* Billing gradient - customizable via JS */
+  --billing-gradient-start: #ff9500;
+  --billing-gradient-end: #ff6b35;
+  
+  /* Chart colors - pastel */
+  --chart-up: #ffb3b3;
+  --chart-down: #b3d9ff;
+  --chart-neutral: #ffd699;
+  
+  /* Icon styling */
+  --icon-color: #ff9500;
+  --icon-bg: rgba(255, 149, 0, 0.12);
+  --icon-weight: 2.2;
+  
+  /* Safe area */
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
 }
 
 [data-theme='dark'] {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-tertiary: #0f3460;
-  --text-primary: #f8f9fa;
-  --text-secondary: #ced4da;
-  --text-tertiary: #868e96;
-  --border-color: #2d3748;
-  --income-color: #4dabf7;
-  --expense-color: #ff8787;
-  --accent-color: #ff8787;
-  --success-color: #69db7c;
-  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  /* Dark mode - Modern Dark */
+  --bg-primary: #0d0d0f;
+  --bg-secondary: #1c1c1e;
+  --bg-tertiary: #2c2c2e;
+  --bg-card: #1c1c1e;
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #9a9a9a;
+  --border-color: #3a3a3c;
+  --income-color: #4cd964;
+  --expense-color: #ff6b6b;
+  --accent-color: #0a84ff;
+  --accent-secondary: #5e5ce6;
+  --success-color: #4cd964;
+  --warning-color: #ffcc00;
+  --card-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
   --modal-overlay: rgba(0, 0, 0, 0.7);
+  
+  /* Billing gradient for dark mode */
+  --billing-gradient-start: #0a84ff;
+  --billing-gradient-end: #5e5ce6;
+  
+  /* Chart colors for dark mode - pastel */
+  --chart-up: #ff9999;
+  --chart-down: #99ccff;
+  --chart-neutral: #ffcc80;
+  
+  /* Icon styling */
+  --icon-color: #0a84ff;
+  --icon-bg: rgba(10, 132, 255, 0.15);
+  --icon-weight: 2.2;
 }
 
 * {
@@ -80,6 +119,17 @@ a {
 ::-webkit-scrollbar-thumb {
   background: var(--text-tertiary);
   border-radius: 3px;
+}
+
+/* Global icon styling for better visibility */
+svg {
+  stroke-width: 2.2;
+}
+
+/* Section icons accent color */
+.section-icon {
+  color: var(--accent-color);
+  stroke-width: 2.5;
 }
 
 /* Animations */

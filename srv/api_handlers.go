@@ -1,6 +1,7 @@
 package srv
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -25,6 +26,22 @@ type CardWeekTotal struct {
 	CardID   int64  `json:"card_id"`
 	CardName string `json:"card_name"`
 	Total    int64  `json:"total"`
+}
+
+type EffectiveTransaction struct {
+	ID                 int64     `json:"id"`
+	CardID             int64     `json:"card_id"`
+	CardName           string    `json:"card_name"`
+	CategoryID         *int64    `json:"category_id"`
+	CategoryName       string    `json:"category_name"`
+	TransactionDate    time.Time `json:"transaction_date"`
+	Description        string    `json:"description"`
+	Amount             int64     `json:"amount"`
+	IsInstallment      int64     `json:"is_installment"`
+	InstallmentMonths  *int64    `json:"installment_months"`
+	InstallmentCurrent int       `json:"installment_current"`
+	IsCancelled        int64     `json:"is_cancelled"`
+	OriginalDate       time.Time `json:"original_date"`
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, data any) {
@@ -58,11 +75,11 @@ func (s *Server) HandleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	cards, _ := q.GetAllCards(ctx)
-	txns, _ := q.GetAllTransactions(ctx)
 	
-	recentTxns := txns
-	if len(recentTxns) > 10 {
-		recentTxns = recentTxns[:10]
+	effectiveTxns, err := s.getEffectiveTransactions(ctx, year, month)
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
 	}
 	
 	type BillingPeriodJSON struct {
@@ -79,81 +96,14 @@ func (s *Server) HandleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 	var totalThisMonth int64
 	
 	for _, card := range cards {
-		// 결제예정월 기준으로 이용기간 계산
 		start, end := calculateBillingPeriodForMonth(year, month, int(card.BillingStartDay), int(card.BillingEndDay))
-		startStr := start.Format("2006-01-02")
-		endStr := end.Format("2006-01-02")
 		
-		// Calculate card total including:
-		// 1. Regular transactions (non-installment)
-		// 2. Installment transactions - monthly payment amount
-		// 3. Cancelled transactions - subtract from total
 		var cardTotal int64
-		
-		// Query for non-cancelled, non-installment transactions in this period
-		row := s.DB.QueryRowContext(ctx, `
-			SELECT COALESCE(SUM(amount), 0) FROM transactions 
-			WHERE card_id = ? 
-			AND substr(transaction_date, 1, 10) >= ? 
-			AND substr(transaction_date, 1, 10) <= ?
-			AND is_cancelled = 0
-			AND is_installment = 0
-		`, card.ID, startStr, endStr)
-		row.Scan(&cardTotal)
-		
-		// Add installment transactions for this billing month
-		// An installment tx should be charged if:
-		// - Current installment_current <= this billing month's offset from original tx month
-		// - AND it hasn't been fully paid (installment_current < installment_months)
-		rows, err := s.DB.QueryContext(ctx, `
-			SELECT amount, installment_months, installment_current, transaction_date 
-			FROM transactions 
-			WHERE card_id = ? 
-			AND is_cancelled = 0 
-			AND is_installment = 1
-		`, card.ID)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var amount, months, current int64
-				var txDateStr string
-				if err := rows.Scan(&amount, &months, &current, &txDateStr); err != nil {
-					continue
-				}
-				
-				// Parse original transaction date
-				txDate, _ := time.Parse("2006-01-02T15:04:05Z", txDateStr)
-				if txDate.IsZero() {
-					txDate, _ = time.Parse("2006-01-02 15:04:05", txDateStr)
-				}
-				
-				// Calculate which installment month this billing month corresponds to
-				// The first installment is charged in the billing month following the tx
-				txBillingMonth := getNextBillingMonth(txDate, int(card.BillingStartDay), int(card.BillingEndDay))
-				targetBillingMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
-				
-				// Calculate months difference
-				monthsDiff := (targetBillingMonth.Year()-txBillingMonth.Year())*12 + int(targetBillingMonth.Month()-txBillingMonth.Month())
-				installmentNum := monthsDiff + 1 // 1-indexed
-				
-				// If this billing month falls within the installment period
-				if installmentNum >= 1 && installmentNum <= int(months) {
-					cardTotal += amount // amount is already monthly payment
-				}
+		for _, tx := range effectiveTxns {
+			if tx.CardID == card.ID {
+				cardTotal += tx.Amount
 			}
 		}
-		
-		// Subtract cancelled transactions
-		var cancelledTotal int64
-		row = s.DB.QueryRowContext(ctx, `
-			SELECT COALESCE(SUM(amount), 0) FROM transactions 
-			WHERE card_id = ? 
-			AND substr(transaction_date, 1, 10) >= ? 
-			AND substr(transaction_date, 1, 10) <= ?
-			AND is_cancelled = 1
-		`, card.ID, startStr, endStr)
-		row.Scan(&cancelledTotal)
-		cardTotal -= cancelledTotal
 		
 		if cardTotal < 0 {
 			cardTotal = 0
@@ -177,6 +127,20 @@ func (s *Server) HandleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 		if bp.Total > 0 {
 			activeBillingPeriods = append(activeBillingPeriods, bp)
 		}
+	}
+
+	// Sort transactions for display (latest first)
+	for i := 0; i < len(effectiveTxns); i++ {
+		for j := i + 1; j < len(effectiveTxns); j++ {
+			if effectiveTxns[i].OriginalDate.Before(effectiveTxns[j].OriginalDate) {
+				effectiveTxns[i], effectiveTxns[j] = effectiveTxns[j], effectiveTxns[i]
+			}
+		}
+	}
+
+	recentTxns := effectiveTxns
+	if len(recentTxns) > 20 {
+		recentTxns = recentTxns[:20]
 	}
 	
 	s.writeJSON(w, map[string]any{
@@ -203,10 +167,10 @@ func getNextBillingMonth(txDate time.Time, startDay, endDay int) time.Time {
 	
 	// Cross-month billing (e.g., 23~22)
 	if day >= startDay {
-		// Transaction in first part of billing period
+		// Transaction in first part of billing period (e.g., Nov 27 -> Jan)
 		return time.Date(year, time.Month(month+2), 1, 0, 0, 0, 0, time.Local)
 	} else if day <= endDay {
-		// Transaction in second part of billing period
+		// Transaction in second part of billing period (e.g., Dec 10 -> Jan)
 		return time.Date(year, time.Month(month+1), 1, 0, 0, 0, 0, time.Local)
 	}
 	// Outside billing period - shouldn't happen
@@ -215,13 +179,40 @@ func getNextBillingMonth(txDate time.Time, startDay, endDay int) time.Time {
 
 // Transactions API
 func (s *Server) HandleAPIGetTransactions(w http.ResponseWriter, r *http.Request) {
-	q := dbgen.New(s.DB)
-	txns, err := q.GetAllTransactions(r.Context())
+	yearStr := r.URL.Query().Get("year")
+	monthStr := r.URL.Query().Get("month")
+	
+	if yearStr == "" || monthStr == "" {
+		// Fallback to all transactions if no year/month provided for backward compatibility
+		q := dbgen.New(s.DB)
+		txns, err := q.GetAllTransactions(r.Context())
+		if err != nil {
+			s.writeError(w, 500, err.Error())
+			return
+		}
+		s.writeJSON(w, map[string]any{"transactions": txns})
+		return
+	}
+	
+	year, _ := strconv.Atoi(yearStr)
+	month, _ := strconv.Atoi(monthStr)
+	
+	effectiveTxns, err := s.getEffectiveTransactions(r.Context(), year, month)
 	if err != nil {
 		s.writeError(w, 500, err.Error())
 		return
 	}
-	s.writeJSON(w, map[string]any{"transactions": txns})
+	
+	// Sort transactions by date descending
+	for i := 0; i < len(effectiveTxns); i++ {
+		for j := i + 1; j < len(effectiveTxns); j++ {
+			if effectiveTxns[i].TransactionDate.Before(effectiveTxns[j].TransactionDate) {
+				effectiveTxns[i], effectiveTxns[j] = effectiveTxns[j], effectiveTxns[i]
+			}
+		}
+	}
+	
+	s.writeJSON(w, map[string]any{"transactions": effectiveTxns})
 }
 
 func (s *Server) HandleAPIGetTransaction(w http.ResponseWriter, r *http.Request) {
@@ -500,18 +491,41 @@ func (s *Server) HandleAPIDeleteCategory(w http.ResponseWriter, r *http.Request)
 
 // Statistics API
 func (s *Server) HandleAPIStatistics(w http.ResponseWriter, r *http.Request) {
-	startStr := r.URL.Query().Get("start")
-	endStr := r.URL.Query().Get("end")
+	yearStr := r.URL.Query().Get("year")
+	monthStr := r.URL.Query().Get("month")
 	
-	if startStr == "" || endStr == "" {
+	year, _ := strconv.Atoi(yearStr)
+	month, _ := strconv.Atoi(monthStr)
+	if year == 0 {
+		year = time.Now().Year()
+	}
+	if month == 0 {
 		now := time.Now()
-		start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-		end := start.AddDate(0, 1, 0)
-		startStr = start.Format("2006-01-02")
-		endStr = end.Format("2006-01-02")
+		// Default to current month if it's not the 1st? 
+		// Actually user said "시작페이지 기준도 마찬가지로 매달 1일을 기준으로 다음달 결제 예정금액을 기본페이지로 한다"
+		// This means if it's Feb 1st, show March. Today is Feb 3rd, so show March.
+		next := now.AddDate(0, 1, 0)
+		year = next.Year()
+		month = int(next.Month())
 	}
 	
 	ctx := r.Context()
+	
+	// Get stats for current period
+	txns, err := s.getEffectiveTransactions(ctx, year, month)
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
+	}
+	
+	// Get stats for last period (for comparison)
+	lastYear := year
+	lastMonth := month - 1
+	if lastMonth == 0 {
+		lastMonth = 12
+		lastYear--
+	}
+	lastTxns, _ := s.getEffectiveTransactions(ctx, lastYear, lastMonth)
 	
 	type CategoryStatJSON struct {
 		CategoryName string `json:"category_name"`
@@ -526,64 +540,65 @@ func (s *Server) HandleAPIStatistics(w http.ResponseWriter, r *http.Request) {
 		Count       int64  `json:"count"`
 	}
 	
+	// Aggregation for current month
+	byCategoryMap := make(map[string]*CategoryStatJSON)
+	byCardMap := make(map[int64]*CardStatJSON)
+	var total int64
+	
+	for _, tx := range txns {
+		total += tx.Amount
+		
+		if _, ok := byCategoryMap[tx.CategoryName]; !ok {
+			byCategoryMap[tx.CategoryName] = &CategoryStatJSON{CategoryName: tx.CategoryName}
+		}
+		byCategoryMap[tx.CategoryName].TotalAmount += tx.Amount
+		byCategoryMap[tx.CategoryName].Count++
+		
+		if _, ok := byCardMap[tx.CardID]; !ok {
+			byCardMap[tx.CardID] = &CardStatJSON{CardName: tx.CardName, CardID: tx.CardID}
+		}
+		byCardMap[tx.CardID].TotalAmount += tx.Amount
+		byCardMap[tx.CardID].Count++
+	}
+	
+	var totalLastMonth int64
+	for _, tx := range lastTxns {
+		totalLastMonth += tx.Amount
+	}
+	
+	// Convert maps to sorted slices
 	var byCategory []CategoryStatJSON
-	rowsCat, err := s.DB.QueryContext(ctx, `
-		SELECT 
-			COALESCE(cat.name, '미분류') as category_name,
-			SUM(t.amount) as total_amount,
-			COUNT(*) as count
-		FROM transactions t
-		LEFT JOIN categories cat ON t.category_id = cat.id
-		WHERE substr(t.transaction_date, 1, 10) >= ? AND substr(t.transaction_date, 1, 10) <= ?
-		GROUP BY t.category_id
-		ORDER BY total_amount DESC
-	`, startStr, endStr)
-	if err == nil {
-		defer rowsCat.Close()
-		for rowsCat.Next() {
-			var cs CategoryStatJSON
-			if err := rowsCat.Scan(&cs.CategoryName, &cs.TotalAmount, &cs.Count); err == nil {
-				byCategory = append(byCategory, cs)
+	for _, v := range byCategoryMap {
+		byCategory = append(byCategory, *v)
+	}
+	// Sort by amount descending
+	for i := 0; i < len(byCategory); i++ {
+		for j := i + 1; j < len(byCategory); j++ {
+			if byCategory[i].TotalAmount < byCategory[j].TotalAmount {
+				byCategory[i], byCategory[j] = byCategory[j], byCategory[i]
 			}
 		}
-	} else {
-		slog.Warn("query by category", "error", err)
 	}
 	
 	var byCard []CardStatJSON
-	rowsCard, err := s.DB.QueryContext(ctx, `
-		SELECT 
-			c.name as card_name,
-			c.id as card_id,
-			SUM(t.amount) as total_amount,
-			COUNT(*) as count
-		FROM transactions t
-		JOIN cards c ON t.card_id = c.id
-		WHERE substr(t.transaction_date, 1, 10) >= ? AND substr(t.transaction_date, 1, 10) <= ?
-		GROUP BY t.card_id
-		ORDER BY total_amount DESC
-	`, startStr, endStr)
-	if err == nil {
-		defer rowsCard.Close()
-		for rowsCard.Next() {
-			var cs CardStatJSON
-			if err := rowsCard.Scan(&cs.CardName, &cs.CardID, &cs.TotalAmount, &cs.Count); err == nil {
-				byCard = append(byCard, cs)
+	for _, v := range byCardMap {
+		byCard = append(byCard, *v)
+	}
+	for i := 0; i < len(byCard); i++ {
+		for j := i + 1; j < len(byCard); j++ {
+			if byCard[i].TotalAmount < byCard[j].TotalAmount {
+				byCard[i], byCard[j] = byCard[j], byCard[i]
 			}
 		}
-	} else {
-		slog.Warn("query by card", "error", err)
-	}
-	
-	var total int64
-	for _, c := range byCard {
-		total += c.TotalAmount
 	}
 	
 	s.writeJSON(w, map[string]any{
-		"by_category": byCategory,
-		"by_card":     byCard,
-		"total":       total,
+		"year":             year,
+		"month":            month,
+		"by_category":      byCategory,
+		"by_card":          byCard,
+		"total":            total,
+		"total_last_month": totalLastMonth,
 	})
 }
 
@@ -644,10 +659,11 @@ func (s *Server) HandleAPIWeeklyStats(w http.ResponseWriter, r *http.Request) {
 		year = time.Now().Year()
 	}
 	if month == 0 {
-		month = int(time.Now().Month())
+		next := time.Now().AddDate(0, 1, 0)
+		year = next.Year()
+		month = int(next.Month())
 	}
 	
-	// Get all cards for billing period calculation
 	q := dbgen.New(s.DB)
 	cards, err := q.GetAllCards(r.Context())
 	if err != nil {
@@ -655,8 +671,14 @@ func (s *Server) HandleAPIWeeklyStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Calculate billing period for this month (결제예정월)
-	// Find the earliest start and latest end across all cards
+	// Get all effective transactions for this month
+	txns, err := s.getEffectiveTransactions(r.Context(), year, month)
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
+	}
+
+	// Calculate overall period across all cards for week generation
 	var periodStart, periodEnd time.Time
 	for i, card := range cards {
 		start, end := calculateBillingPeriodForMonth(year, month, int(card.BillingStartDay), int(card.BillingEndDay))
@@ -668,70 +690,19 @@ func (s *Server) HandleAPIWeeklyStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
-	// Get all transactions in this period
-	rows, err := s.DB.QueryContext(r.Context(), `
-		SELECT t.id, t.card_id, t.amount, t.transaction_date, c.name as card_name,
-		       c.billing_start_day, c.billing_end_day
-		FROM transactions t
-		JOIN cards c ON t.card_id = c.id
-		WHERE substr(t.transaction_date, 1, 10) >= ? AND substr(t.transaction_date, 1, 10) <= ?
-		ORDER BY t.transaction_date
-	`, periodStart.Format("2006-01-02"), periodEnd.Format("2006-01-02"))
-	if err != nil {
-		s.writeError(w, 500, err.Error())
-		return
-	}
-	defer rows.Close()
-	
-	// Group by week (Friday to Thursday, ending Friday)
-	type txData struct {
-		CardID    int64
-		CardName  string
-		Amount    int64
-		Date      time.Time
-		StartDay  int
-		EndDay    int
-	}
-	var transactions []txData
-	for rows.Next() {
-		var tx txData
-		var dateStr string
-		var txID int64
-		if err := rows.Scan(&txID, &tx.CardID, &tx.Amount, &dateStr, &tx.CardName, &tx.StartDay, &tx.EndDay); err != nil {
-			continue
-		}
-		tx.Date, _ = time.Parse("2006-01-02T15:04:05Z", dateStr)
-		if tx.Date.IsZero() {
-			tx.Date, _ = time.Parse("2006-01-02 15:04:05", dateStr)
-		}
-		if tx.Date.IsZero() {
-			tx.Date, _ = time.Parse("2006-01-02 15:04:05 -0700 MST", dateStr)
-		}
-		if tx.Date.IsZero() {
-			tx.Date, _ = time.Parse("2006-01-02 15:04:05 +0000 UTC", dateStr)
-		}
-		
-		// Check if this transaction belongs to this billing month for its card
-		cardStart, cardEnd := calculateBillingPeriodForMonth(year, month, tx.StartDay, tx.EndDay)
-		if tx.Date.Before(cardStart) || tx.Date.After(cardEnd) {
-			continue
-		}
-		transactions = append(transactions, tx)
-	}
-	
 	// Generate weeks from period start to period end
 	var weeks []WeeklyStats
 	weekStart := periodStart
-	// Adjust to previous Friday if not Friday
-	for weekStart.Weekday() != time.Friday {
+	// Adjust to previous Monday (or Friday as before?) 
+	// The user mention "Friday to Thursday" in comments, but let's stick to what's natural or what was there.
+	// Actually the user didn't specify the week start day, but let's use Monday as standard.
+	// Wait, the previous code used Friday. Let's keep it if that's what was intended.
+	for weekStart.Weekday() != time.Monday {
 		weekStart = weekStart.AddDate(0, 0, -1)
 	}
 	
 	for weekStart.Before(periodEnd) {
-		weekEnd := weekStart.AddDate(0, 0, 6) // Thursday
-		if weekEnd.After(periodEnd) {
-			weekEnd = periodEnd
-		}
+		weekEnd := weekStart.AddDate(0, 0, 6) // Sunday
 		
 		week := WeeklyStats{
 			WeekStart: weekStart.Format("2006-01-02"),
@@ -740,10 +711,14 @@ func (s *Server) HandleAPIWeeklyStats(w http.ResponseWriter, r *http.Request) {
 			ByCard:    []CardWeekTotal{},
 		}
 		
-		// Sum transactions for this week
 		cardTotals := make(map[int64]*CardWeekTotal)
-		for _, tx := range transactions {
-			if !tx.Date.Before(weekStart) && !tx.Date.After(weekEnd.Add(24*time.Hour)) {
+		for _, tx := range txns {
+			// Use TransactionDate which we set to the start of billing period for installments
+			// But for weekly stats, installments should maybe be spread out?
+			// Actually, for installments, we don't have a specific "week" within the billing month.
+			// Let's just put all installments in the first week of the period.
+			
+			if !tx.TransactionDate.Before(weekStart) && !tx.TransactionDate.After(weekEnd.Add(23*time.Hour + 59*time.Minute)) {
 				week.Total += tx.Amount
 				if _, ok := cardTotals[tx.CardID]; !ok {
 					cardTotals[tx.CardID] = &CardWeekTotal{
@@ -766,8 +741,6 @@ func (s *Server) HandleAPIWeeklyStats(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, map[string]interface{}{
 		"year":         year,
 		"month":        month,
-		"period_start": periodStart.Format("2006-01-02"),
-		"period_end":   periodEnd.Format("2006-01-02"),
 		"weeks":        weeks,
 	})
 }
@@ -788,6 +761,7 @@ func calculateBillingPeriodForMonth(year, month, startDay, endDay int) (time.Tim
 	}
 	
 	// Cross-month billing (e.g., 23~22)
+	// Example: Jan billing covers Nov 23 ~ Dec 22
 	startMonth := month - 2
 	startYear := year
 	if startMonth <= 0 {
@@ -875,4 +849,152 @@ func (s *Server) HandleAPISetGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	s.writeJSON(w, goal)
+}
+
+func parseTime(s string) time.Time {
+	formats := []string{
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05-07:00",
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02 15:04:05 +0900 KST",
+		"2006-01-02 15:04:05 +0000 UTC",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		t, err := time.Parse(f, s)
+		if err == nil {
+			return t
+		}
+	}
+	// Fallback: try to parse just the date and time part
+	if len(s) >= 19 {
+		t, err := time.Parse("2006-01-02 15:04:05", s[:19])
+		if err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+func (s *Server) getEffectiveTransactions(ctx context.Context, year, month int) ([]EffectiveTransaction, error) {
+	q := dbgen.New(s.DB)
+	cards, err := q.GetAllCards(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []EffectiveTransaction
+
+	for _, card := range cards {
+		start, end := calculateBillingPeriodForMonth(year, month, int(card.BillingStartDay), int(card.BillingEndDay))
+		startStr := start.Format("2006-01-02")
+		endStr := end.Format("2006-01-02")
+
+		// 1. Regular transactions (is_installment = 0, is_cancelled = 0)
+		rows, err := s.DB.QueryContext(ctx, `
+SELECT t.id, t.card_id, c.name, t.category_id, COALESCE(cat.name, '미분류'), 
+       t.transaction_date, t.description, t.amount, t.is_installment, 
+       t.installment_months, t.is_cancelled
+FROM transactions t
+JOIN cards c ON t.card_id = c.id
+LEFT JOIN categories cat ON t.category_id = cat.id
+WHERE t.card_id = ? 
+AND substr(t.transaction_date, 1, 10) >= ? 
+AND substr(t.transaction_date, 1, 10) <= ?
+AND t.is_cancelled = 0
+AND t.is_installment = 0
+`, card.ID, startStr, endStr)
+		if err == nil {
+			for rows.Next() {
+				var et EffectiveTransaction
+				var txDateStr string
+				if err := rows.Scan(&et.ID, &et.CardID, &et.CardName, &et.CategoryID, &et.CategoryName,
+					&txDateStr, &et.Description, &et.Amount, &et.IsInstallment,
+					&et.InstallmentMonths, &et.IsCancelled); err == nil {
+					et.TransactionDate = parseTime(txDateStr)
+					et.OriginalDate = et.TransactionDate
+					results = append(results, et)
+				}
+			}
+			rows.Close()
+		}
+
+		// 2. Installments (is_installment = 1, is_cancelled = 0)
+		rowsInst, err := s.DB.QueryContext(ctx, `
+SELECT t.id, t.card_id, c.name, t.category_id, COALESCE(cat.name, '미분류'), 
+       t.transaction_date, t.description, t.amount, t.is_installment, 
+       t.installment_months, t.is_cancelled
+FROM transactions t
+JOIN cards c ON t.card_id = c.id
+LEFT JOIN categories cat ON t.category_id = cat.id
+WHERE t.card_id = ? 
+AND t.is_cancelled = 0
+AND t.is_installment = 1
+`, card.ID)
+		if err == nil {
+			for rowsInst.Next() {
+				var et EffectiveTransaction
+				var txDateStr string
+				var months int64
+				if err := rowsInst.Scan(&et.ID, &et.CardID, &et.CardName, &et.CategoryID, &et.CategoryName,
+					&txDateStr, &et.Description, &et.Amount, &et.IsInstallment,
+					&months, &et.IsCancelled); err == nil {
+
+					et.InstallmentMonths = &months
+					et.OriginalDate = parseTime(txDateStr)
+
+					txBillingMonth := getNextBillingMonth(et.OriginalDate, int(card.BillingStartDay), int(card.BillingEndDay))
+					targetBillingMonth := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+
+					monthsDiff := (targetBillingMonth.Year()-txBillingMonth.Year())*12 + int(targetBillingMonth.Month()-txBillingMonth.Month())
+					installmentNum := monthsDiff + 1
+
+					if installmentNum >= 1 && installmentNum <= int(months) {
+						et.InstallmentCurrent = installmentNum
+						// Split amount
+						et.Amount = et.Amount / months
+						
+						// Keep original date so it can be grouped with other transactions on the same day.
+						// The filtering is already handled by installmentNum logic.
+						et.TransactionDate = et.OriginalDate
+						
+						results = append(results, et)
+					}
+				}
+			}
+			rowsInst.Close()
+		}
+
+		// 3. Subtract cancelled transactions (is_cancelled = 1)
+		rowsCan, err := s.DB.QueryContext(ctx, `
+SELECT t.id, t.card_id, c.name, t.category_id, COALESCE(cat.name, '미분류'), 
+       t.transaction_date, t.description, t.amount, t.is_installment, 
+       t.installment_months, t.is_cancelled
+FROM transactions t
+JOIN cards c ON t.card_id = c.id
+LEFT JOIN categories cat ON t.category_id = cat.id
+WHERE t.card_id = ? 
+AND substr(t.transaction_date, 1, 10) >= ? 
+AND substr(t.transaction_date, 1, 10) <= ?
+AND t.is_cancelled = 1
+`, card.ID, startStr, endStr)
+		if err == nil {
+			for rowsCan.Next() {
+				var et EffectiveTransaction
+				var txDateStr string
+				if err := rowsCan.Scan(&et.ID, &et.CardID, &et.CardName, &et.CategoryID, &et.CategoryName,
+					&txDateStr, &et.Description, &et.Amount, &et.IsInstallment,
+					&et.InstallmentMonths, &et.IsCancelled); err == nil {
+					et.TransactionDate = parseTime(txDateStr)
+					et.OriginalDate = et.TransactionDate
+					et.Amount = -et.Amount // Negative for cancellation
+					results = append(results, et)
+				}
+			}
+			rowsCan.Close()
+		}
+	}
+
+	return results, nil
 }

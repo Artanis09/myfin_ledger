@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addMonths, subMonths } from 'date-fns'
 import Header from '../components/Header'
@@ -8,81 +8,36 @@ import { api } from '../api'
 import type { Transaction, Card } from '../types'
 import styles from './Transactions.module.css'
 
-// 결제예정월 기준으로 필터링
-// 예: 카드 이용기간 23~22일 경우, 1월 23일 ~ 2월 22일 사용내역은 3월 결제예정
-function getBillingPeriodForMonth(year: number, month: number, startDay: number, endDay: number) {
-  // month는 1-12 (결제예정월)
-  // 결제예정월의 이전 달에 해당하는 이용기간을 계산
-  
-  if (startDay <= endDay) {
-    // 예: 1~31 (같은 달 내)
-    // 이전 달의 startDay ~ endDay
-    const prevMonth = month - 1 === 0 ? 12 : month - 1
-    const prevYear = month - 1 === 0 ? year - 1 : year
-    return {
-      start: new Date(prevYear, prevMonth - 1, startDay),
-      end: new Date(prevYear, prevMonth - 1, endDay, 23, 59, 59)
-    }
-  } else {
-    // 예: 23~22 (두 달에 걸침)
-    // 이전이전 달 startDay ~ 이전 달 endDay
-    // 3월 결제 -> 1월 23일 ~ 2월 22일
-    const startMonth = month - 2 <= 0 ? month - 2 + 12 : month - 2
-    const startYear = month - 2 <= 0 ? year - 1 : year
-    const endMonth = month - 1 === 0 ? 12 : month - 1
-    const endYear = month - 1 === 0 ? year - 1 : year
-    return {
-      start: new Date(startYear, startMonth - 1, startDay),
-      end: new Date(endYear, endMonth - 1, endDay, 23, 59, 59)
-    }
-  }
+type SortType = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc';
+
+// 매달 1일이면 다음달(결제예정월)을 기본으로 표시
+function getDefaultMonth() {
+  const now = new Date()
+  return addMonths(now, 1)
 }
 
 export default function Transactions() {
   const navigate = useNavigate()
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [currentMonth, setCurrentMonth] = useState(getDefaultMonth)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [, setCards] = useState<Card[]>([])
   const [, setLoading] = useState(true)
+  const [showOnlyInstallment, setShowOnlyInstallment] = useState(false)
+  const [sortBy, setSortBy] = useState<SortType>('date-desc')
   
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
+      const year = currentMonth.getFullYear()
+      const month = currentMonth.getMonth() + 1
+      
       const [txData, cardData] = await Promise.all([
-        api.getTransactions(),
+        api.getTransactions(year, month),
         api.getCards()
       ])
       
-      const allTransactions = txData.transactions || []
-      const cardList = cardData.cards || []
-      setCards(cardList)
-      
-      // 카드별 이용기간 맵 생성
-      const cardBillingMap = new Map<number, { startDay: number, endDay: number }>()
-      cardList.forEach((card: Card) => {
-        cardBillingMap.set(card.id, {
-          startDay: card.billing_start_day,
-          endDay: card.billing_end_day
-        })
-      })
-      
-      // 현재 선택된 월(결제예정월) 기준으로 필터링
-      const billingYear = currentMonth.getFullYear()
-      const billingMonth = currentMonth.getMonth() + 1 // 1-12
-      
-      const filtered = allTransactions.filter((tx: Transaction) => {
-        const billing = cardBillingMap.get(tx.card_id)
-        if (!billing) return false
-        
-        const { start, end } = getBillingPeriodForMonth(
-          billingYear, billingMonth, billing.startDay, billing.endDay
-        )
-        
-        const txDate = new Date(tx.transaction_date)
-        return txDate >= start && txDate <= end
-      })
-      
-      setTransactions(filtered)
+      setTransactions(txData.transactions || [])
+      setCards(cardData.cards || [])
     } catch (err) {
       console.error('Failed to load:', err)
     } finally {
@@ -115,8 +70,33 @@ export default function Transactions() {
       alert('삭제에 실패했습니다.')
     }
   }
+
+  const filteredAndSortedTransactions = useMemo(() => {
+    let result = [...transactions];
+
+    if (showOnlyInstallment) {
+      result = result.filter(tx => tx.is_installment === 1);
+    }
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-desc':
+          return new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime();
+        case 'date-asc':
+          return new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime();
+        case 'amount-desc':
+          return b.amount - a.amount;
+        case 'amount-asc':
+          return a.amount - b.amount;
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [transactions, showOnlyInstallment, sortBy]);
   
-  const totalExpense = transactions.reduce((sum, tx) => {
+  const totalExpense = filteredAndSortedTransactions.reduce((sum, tx) => {
     // 취소 거래는 마이너스로 계산
     if (tx.is_cancelled === 1) {
       return sum - tx.amount
@@ -133,6 +113,30 @@ export default function Transactions() {
         onNextMonth={() => setCurrentMonth(prev => addMonths(prev, 1))}
       />
       
+      <div className={styles.filterBar}>
+        <div className={styles.filterGroup}>
+          <button 
+            className={`${styles.filterBtn} ${showOnlyInstallment ? styles.active : ''}`}
+            onClick={() => setShowOnlyInstallment(!showOnlyInstallment)}
+          >
+            할부만 보기
+          </button>
+        </div>
+        
+        <div className={styles.sortGroup}>
+          <select 
+            className={styles.sortSelect}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortType)}
+          >
+            <option value="date-desc">날짜 최신순</option>
+            <option value="date-asc">날짜 오래된순</option>
+            <option value="amount-desc">금액 높은순</option>
+            <option value="amount-asc">금액 낮은순</option>
+          </select>
+        </div>
+      </div>
+
       <div className={styles.summary}>
         <div className={styles.summaryItem}>
           <span className={styles.summaryLabel}>수입</span>
@@ -148,15 +152,17 @@ export default function Transactions() {
         </div>
       </div>
       
-      {transactions.length > 0 ? (
+      {filteredAndSortedTransactions.length > 0 ? (
         <TransactionList 
-          transactions={transactions}
+          transactions={filteredAndSortedTransactions}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          sortBy={sortBy}
+          grouped={sortBy.startsWith('date')}
         />
       ) : (
         <div className={styles.empty}>
-          <p>이 달 결제예정 내역이 없습니다</p>
+          <p>{showOnlyInstallment ? '이 달 할부 결제 내역이 없습니다' : '이 달 결제예정 내역이 없습니다'}</p>
         </div>
       )}
       

@@ -23,7 +23,13 @@ export const api = {
   },
   
   // Transactions
-  getTransactions: () => fetchJSON<any>('/transactions'),
+  getTransactions: (year?: number, month?: number) => {
+    const params = new URLSearchParams()
+    if (year) params.set('year', year.toString())
+    if (month) params.set('month', month.toString())
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return fetchJSON<any>(`/transactions${query}`)
+  },
   getTransaction: (id: number) => fetchJSON<any>(`/transactions/${id}`),
   createTransaction: (data: any) => fetchJSON<any>('/transactions', {
     method: 'POST',
@@ -66,8 +72,13 @@ export const api = {
   }),
   
   // Statistics
-  getStatistics: (start: string, end: string) => 
-    fetchJSON<any>(`/statistics?start=${start}&end=${end}`),
+  getStatistics: (year?: number, month?: number) => {
+    const params = new URLSearchParams()
+    if (year) params.set('year', year.toString())
+    if (month) params.set('month', month.toString())
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return fetchJSON<any>(`/statistics${query}`)
+  },
   
   // SMS Parsing
   parseSMS: (text: string) => fetchJSON<any>('/parse-sms', {

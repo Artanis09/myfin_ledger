@@ -27,7 +27,11 @@ func run() error {
 	if err != nil {
 		hostname = "unknown"
 	}
-	server, err := srv.New("db.sqlite3", hostname)
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "db.sqlite3"
+	}
+	server, err := srv.New(dbPath, hostname)
 	if err != nil {
 		return fmt.Errorf("create server: %w", err)
 	}
@@ -41,5 +45,6 @@ func run() error {
 	return server.Serve(*flagListenAddr, frontendFS)
 }
 // rebuild trigger
+
 
 

@@ -3,15 +3,19 @@
 }
 
 .dayGroup {
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
 }
 
 .dayHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 4px 12px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 16px;
+  background: var(--bg-secondary);
 }
 
 .dayInfo {
@@ -21,29 +25,30 @@
 }
 
 .dayNum {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--text-primary);
-  min-width: 36px;
+  min-width: 32px;
 }
 
 .dayMeta {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .dayDate {
   font-size: 12px;
   color: var(--text-tertiary);
+  font-weight: 500;
 }
 
 .dayOfWeek {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-tertiary);
-  padding: 2px 6px;
+  padding: 2px 8px;
   background: var(--bg-tertiary);
-  border-radius: 4px;
-  margin-top: 2px;
+  border-radius: 8px;
   display: inline-block;
 }
 
@@ -59,7 +64,7 @@
 
 .dayExpense {
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--expense-color);
 }
@@ -84,7 +89,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ef4444;
+  background: #ff453a;
 }
 
 .deleteBtn {
@@ -115,55 +120,83 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 4px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 14px 16px;
   cursor: pointer;
   background: var(--bg-secondary);
   transition: transform 0.15s ease-out;
   position: relative;
   z-index: 1;
+  border-top: 1px solid var(--border-color);
 }
 
 .item:active {
   background: var(--bg-tertiary);
 }
 
-.item:last-child {
-  border-bottom: none;
+.item:first-child {
+  border-top: none;
 }
 
 .itemLeft {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
   min-width: 0;
 }
 
-.category {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  min-width: 48px;
+.categoryIcon {
+  width: 40px;
+  height: 40px;
+  background: var(--icon-bg);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-color);
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .itemInfo {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  gap: 2px;
+}
+
+.descriptionRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .description {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .meta {
+  display: flex;
+  align-items: center;
   font-size: 12px;
   color: var(--text-tertiary);
-  margin-top: 2px;
+}
+
+.categoryName {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.dot {
+  margin: 0 4px;
+  opacity: 0.5;
 }
 
 .itemRight {
@@ -175,25 +208,27 @@
 .amount {
   font-size: 15px;
   font-weight: 600;
-  color: var(--expense-color);
+  color: var(--text-primary);
 }
 
 .installment {
   display: block;
   font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 2px;
+  color: var(--accent-color);
+  margin-top: 3px;
+  font-weight: 500;
 }
 
 /* 취소 거래 스타일 */
 .cancelledBadge {
   display: inline-block;
   padding: 2px 6px;
-  background: #ef4444;
+  background: #ff453a;
   color: white;
   font-size: 10px;
-  border-radius: 4px;
+  border-radius: 6px;
   margin-right: 6px;
+  font-weight: 600;
 }
 
 .cancelled {
@@ -202,5 +237,5 @@
 }
 
 .cancelledAmount {
-  color: #10b981 !important;
+  color: #30d158 !important;
 }

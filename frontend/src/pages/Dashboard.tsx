@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addMonths, subMonths } from 'date-fns'
-import { Target, TrendingUp, TrendingDown, Edit2, CreditCard } from 'lucide-react'
+import { Target, TrendingUp, TrendingDown, Edit2, CreditCard, BarChart3, Clock } from 'lucide-react'
 import Header from '../components/Header'
 import TransactionList from '../components/TransactionList'
 import FloatingButton from '../components/FloatingButton'
@@ -120,7 +120,9 @@ export default function Dashboard() {
       {/* 예상 결제 금액 - 최상단 배치 */}
       <div className={styles.billingSection}>
         <div className={styles.billingHeader}>
-          <CreditCard size={20} className={styles.billingIcon} />
+          <div className={styles.billingIconWrapper}>
+            <CreditCard size={20} />
+          </div>
           <div className={styles.billingHeaderInfo}>
             <span className={styles.billingTitle}>예상 결제 금액</span>
             <span className={styles.billingTotal}>{totalBilling.toLocaleString()}원</span>
@@ -152,7 +154,9 @@ export default function Dashboard() {
       <div className={styles.goalSection}>
         <div className={styles.goalHeader}>
           <div className={styles.goalTitle}>
-            <Target size={18} />
+            <div className={styles.iconWrapper}>
+              <Target size={18} />
+            </div>
             <span>월 소비 목표</span>
           </div>
           <button onClick={() => setShowGoalInput(true)} className={styles.editGoalBtn}>
@@ -206,19 +210,25 @@ export default function Dashboard() {
       {/* 주간 이용금액 차트 */}
       {weeklyStats.length > 0 && (
         <div className={styles.weeklySection}>
-          <h3 className={styles.sectionTitle}>주간 이용 현황</h3>
+          <h3 className={styles.sectionTitle}>
+            <div className={styles.iconWrapper}>
+              <BarChart3 size={18} />
+            </div>
+            주간 이용 현황
+          </h3>
           <div className={styles.weeklyChart}>
             {weeklyStats.map((week, idx) => {
               const prevWeek = weeklyStats[idx - 1]
               const diff = prevWeek ? week.total - prevWeek.total : 0
-              const heightPercent = (week.total / maxWeekTotal) * 100
+              const heightPercent = maxWeekTotal > 0 ? (week.total / maxWeekTotal) * 100 : 0
+              const barClass = idx === 0 ? 'neutral' : (diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral')
               
               return (
                 <div key={week.week_start} className={styles.weekBar}>
                   <div className={styles.barContainer}>
                     <div 
-                      className={styles.bar}
-                      style={{ height: `${Math.max(heightPercent, 5)}%` }}
+                      className={`${styles.bar} ${styles[barClass]}`}
+                      style={{ height: `${Math.max(heightPercent, 8)}%` }}
                     />
                   </div>
                   <div className={styles.weekAmount}>
@@ -239,7 +249,12 @@ export default function Dashboard() {
       
       {/* 최근 거래 */}
       <div className={styles.transactionsSection}>
-        <h3 className={styles.sectionTitle}>최근 거래</h3>
+        <h3 className={styles.sectionTitle}>
+          <div className={styles.iconWrapper}>
+            <Clock size={18} />
+          </div>
+          최근 거래
+        </h3>
         {transactions.length > 0 ? (
           <TransactionList 
             transactions={transactions.slice(0, 10)} 

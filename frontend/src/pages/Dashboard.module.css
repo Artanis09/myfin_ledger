@@ -1,250 +1,52 @@
 .page {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-primary);
-  padding-bottom: 80px;
 }
 
-/* 월 소비 목표 */
-.goalSection {
-  padding: 16px 20px;
-  background: var(--bg-secondary);
-  margin-top: 8px;
-}
-
-.goalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.goalTitle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.editGoalBtn {
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  padding: 4px;
-  cursor: pointer;
-}
-
-.goalInputBox {
-  display: flex;
-  gap: 8px;
-}
-
-.goalInput {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.goalSaveBtn {
-  padding: 10px 16px;
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.goalCancelBtn {
-  padding: 10px 16px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.goalProgress {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.goalBar {
-  height: 12px;
-  background: var(--bg-tertiary);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.goalFill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent-color), #f472b6);
-  border-radius: 6px;
-  transition: width 0.3s ease;
-}
-
-.goalFill.overBudget {
-  background: linear-gradient(90deg, #ef4444, #f97316);
-}
-
-.goalInfo {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.goalCurrent {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.goalTarget {
-  font-size: 14px;
-  color: var(--text-tertiary);
-}
-
-.goalRemaining {
-  font-size: 13px;
-}
-
-.goalRemaining .over {
-  color: #ef4444;
-}
-
-.goalRemaining .under {
-  color: #10b981;
-}
-
-.overIcon {
-  color: #ef4444;
-}
-
-.noGoal {
-  text-align: center;
-  padding: 12px;
-}
-
-.setGoalBtn {
-  padding: 10px 20px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: 1px dashed var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-/* 주간 차트 */
-.weeklySection {
-  padding: 16px 20px;
-  background: var(--bg-secondary);
-  margin-top: 8px;
-}
-
-.weeklyChart {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  height: 140px;
-  padding: 10px 0;
-  gap: 4px;
-}
-
-.weekBar {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-}
-
-.barContainer {
-  width: 100%;
-  height: 80px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.bar {
-  width: 70%;
-  max-width: 40px;
-  background: linear-gradient(180deg, var(--accent-color), #f472b6);
-  border-radius: 4px 4px 0 0;
-  transition: height 0.3s ease;
-}
-
-.weekAmount {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-top: 6px;
-}
-
-.weekLabel {
-  font-size: 10px;
-  color: var(--text-tertiary);
-  margin-top: 2px;
-}
-
-.weekDiff {
-  position: absolute;
-  top: 0;
-  right: 2px;
-  font-size: 10px;
-}
-
-.weekDiff.up {
-  color: #ef4444;
-}
-
-.weekDiff.down {
-  color: #10b981;
-}
-
-/* 예상 결제 금액 - 상단 헤더 스타일 */
+/* 예상 결제 금액 섹션 */
 .billingSection {
-  background: linear-gradient(135deg, #1e3a5f 0%, #0f1f33 100%);
+  background: linear-gradient(135deg, var(--billing-gradient-start) 0%, var(--billing-gradient-end) 100%);
+  margin: 12px 16px;
+  border-radius: 16px;
   padding: 20px;
-  margin: 0;
+  color: white;
 }
 
 .billingHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 20px;
 }
 
-.billingIcon {
-  color: #60a5fa;
+.billingIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
 }
 
 .billingHeaderInfo {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .billingTitle {
-  font-size: 12px;
-  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  opacity: 0.85;
+  font-weight: 500;
 }
 
 .billingTotal {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
-  color: white;
+  letter-spacing: -0.5px;
 }
 
 .billingList {
@@ -257,53 +59,415 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 16px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
+  border-radius: 10px;
 }
 
 .billingInfo {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .billingCard {
   font-size: 14px;
   font-weight: 500;
-  color: white;
 }
 
 .billingPeriod {
-  font-size: 12px;
-  color: rgba(255,255,255,0.5);
-  margin-top: 2px;
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .billingAmount {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #f472b6;
 }
 
 .noBilling {
   text-align: center;
-  padding: 20px;
-  color: rgba(255,255,255,0.5);
+  padding: 16px;
+  opacity: 0.7;
   font-size: 14px;
+}
+
+/* 월 소비 목표 */
+.goalSection {
+  padding: 24px 20px;
+  background: var(--bg-secondary);
+  margin: 12px 16px;
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+}
+
+.goalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.goalTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.editGoalBtn {
+  background: var(--bg-tertiary);
+  border: none;
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.goalInputBox {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.goalInput {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 15px;
+  outline: none;
+}
+
+.goalInput:focus {
+  border-color: var(--accent-color);
+}
+
+.goalSaveBtn {
+  padding: 14px 20px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.goalCancelBtn {
+  padding: 14px 16px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.goalProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.goalBar {
+  height: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.goalFill {
+  height: 100%;
+  background: var(--accent-color);
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.goalFill.overBudget {
+  background: #ff453a;
+}
+
+.goalInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.goalCurrent {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.goalTarget {
+  color: var(--text-tertiary);
+}
+
+.overIcon {
+  color: #ff453a;
+}
+
+.goalPercent {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.goalRemaining {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.goalRemaining .over {
+  color: #ff453a;
+  font-weight: 500;
+}
+
+.goalRemaining .under {
+  color: #30d158;
+  font-weight: 500;
+}
+
+.noGoal {
+  text-align: center;
+}
+
+.setGoalBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 주간 지출 */
+.weeklySection {
+  padding: 24px 20px;
+  background: var(--bg-secondary);
+  margin: 12px 16px;
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+}
+
+.weeklyChart {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  height: 160px;
+  padding: 0 4px 12px;
+}
+
+.weekBar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  position: relative;
+}
+
+.barContainer {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 100px;
+}
+
+.bar {
+  width: 28px;
+  max-width: 100%;
+  border-radius: 6px 6px 2px 2px;
+  min-height: 8px;
+  transition: height 0.3s ease;
+}
+
+.bar.up {
+  background: linear-gradient(180deg, #ffb3b3 0%, #ff9999 100%);
+}
+
+.bar.down {
+  background: linear-gradient(180deg, #b3d9ff 0%, #99ccff 100%);
+}
+
+.bar.neutral {
+  background: linear-gradient(180deg, #ffd699 0%, #ffcc80 100%);
+}
+
+.weekAmount {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.weekLabel {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin-top: 2px;
+}
+
+.weekDiff {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+}
+
+.weekDiff.up {
+  color: #e74c3c;
+}
+
+.weekDiff.down {
+  color: #3498db;
+}
+
+.weeklyTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.weeklyTotalLabel {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.weeklyTotalAmount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--expense-color);
+}
+
+/* 카드별 결제예정 */
+.cardSection {
+  padding: 20px;
+  background: var(--bg-secondary);
+  margin: 12px 16px;
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
 .sectionTitle {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  width: 100%;
+  text-align: center;
 }
 
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--icon-bg);
+  border-radius: 10px;
+  color: var(--accent-color);
+}
+
+.iconWrapper svg {
+  stroke-width: var(--icon-weight);
+}
+
+.sectionMore {
+  font-size: 13px;
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+}
+
+.cardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cardName {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cardPeriod {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.cardAmount {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--expense-color);
+}
+
+/* 최근 거래내역 */
 .transactionsSection {
-  padding: 16px 20px;
+  padding: 24px 0 8px;
   background: var(--bg-secondary);
-  margin-top: 8px;
+  margin: 12px 16px;
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
 }
 
 .empty {
