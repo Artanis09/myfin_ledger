@@ -86,6 +86,24 @@ export const api = {
     body: JSON.stringify({ text }),
   }),
   
+  // Image Parsing
+  parseImage: async (file: File) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const res = await fetch(`${API_BASE}/parse-image`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.json()
+  },
+  
+  // Bulk create transactions
+  createTransactionsBulk: (transactions: any[]) => fetchJSON<any>('/transactions/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ transactions }),
+  }),
+  
   // Weekly Stats
   getWeeklyStats: (year: number, month: number) => 
     fetchJSON<any>(`/weekly-stats?year=${year}&month=${month}`),

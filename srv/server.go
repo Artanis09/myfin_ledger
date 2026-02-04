@@ -72,6 +72,8 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	
 	mux.HandleFunc("GET /api/statistics", s.HandleAPIStatistics)
 	mux.HandleFunc("POST /api/parse-sms", s.HandleAPIParseSMS)
+	mux.HandleFunc("POST /api/parse-image", s.HandleAPIParseImage)
+	mux.HandleFunc("POST /api/transactions/bulk", s.HandleAPICreateMultipleTransactions)
 	
 	// Weekly stats and goals
 	mux.HandleFunc("GET /api/weekly-stats", s.HandleAPIWeeklyStats)
