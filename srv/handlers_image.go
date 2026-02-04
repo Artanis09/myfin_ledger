@@ -12,6 +12,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"log/slog"
+
+	"srv.exe.dev/db/dbgen"
 )
 
 type ParsedImageTransaction struct {
@@ -21,6 +25,7 @@ type ParsedImageTransaction struct {
 	CardLastFour      string `json:"card_last_four"`
 	IsInstallment     bool   `json:"is_installment"`
 	InstallmentMonths int64  `json:"installment_months"`
+	IsDuplicate       bool   `json:"is_duplicate"`
 }
 
 type ParseImageResponse struct {
@@ -88,6 +93,38 @@ func (s *Server) HandleAPIParseImage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.writeJSON(w, ParseImageResponse{Error: fmt.Sprintf("이미지 분석 실패: %v", err)})
 		return
+	}
+
+	// 중복 체크 및 카드 매칭
+	cards, _ := dbgen.New(s.DB).GetAllCards(r.Context())
+	for i := range transactions {
+		tx := &transactions[i]
+		var matchedCard *dbgen.Card
+		if tx.CardLastFour != "" {
+			for _, c := range cards {
+				if strings.Contains(c.Name, tx.CardLastFour) {
+					matchedCard = &c
+					break
+				}
+			}
+		}
+
+		if matchedCard != nil {
+			var exists bool
+			err := s.DB.QueryRow(`
+				SELECT EXISTS(
+					SELECT 1 FROM transactions 
+					WHERE card_id = ? 
+					AND date(transaction_date) = date(?) 
+					AND amount = ? 
+					AND description = ?
+					AND is_cancelled = 0
+				)
+			`, matchedCard.ID, tx.Date, tx.Amount, tx.Description).Scan(&exists)
+			if err == nil && exists {
+				tx.IsDuplicate = true
+			}
+		}
 	}
 
 	s.writeJSON(w, ParseImageResponse{Transactions: transactions})
@@ -345,7 +382,26 @@ func (s *Server) HandleAPICreateMultipleTransactions(w http.ResponseWriter, r *h
 	}
 
 	var created []int64
+	var skippedCount int
 	for _, tx := range req.Transactions {
+		// 중복 체크: 동일 카드, 날짜(시간 제외), 금액, 내용인 거래가 있는지 확인
+		var exists bool
+		err := s.DB.QueryRow(`
+			SELECT EXISTS(
+				SELECT 1 FROM transactions 
+				WHERE card_id = ? 
+				AND date(transaction_date) = date(?) 
+				AND amount = ? 
+				AND description = ?
+				AND is_cancelled = 0
+			)
+		`, tx.CardID, tx.TransactionDate, tx.Amount, tx.Description).Scan(&exists)
+
+		if err == nil && exists {
+			skippedCount++
+			continue
+		}
+
 		result, err := s.DB.Exec(`
 			INSERT INTO transactions (card_id, transaction_date, amount, description, category_id, is_installment, installment_months, installment_current, original_amount)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -361,5 +417,6 @@ func (s *Server) HandleAPICreateMultipleTransactions(w http.ResponseWriter, r *h
 	s.writeJSON(w, map[string]interface{}{
 		"created_count": len(created),
 		"created_ids":   created,
+		"skipped_count": skippedCount,
 	})
 }

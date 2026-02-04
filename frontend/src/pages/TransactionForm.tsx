@@ -14,6 +14,7 @@ interface ParsedTransaction {
   installment_months: number
   selected?: boolean
   card_id?: number
+  is_duplicate?: boolean
 }
 
 export default function TransactionForm() {
@@ -118,14 +119,14 @@ export default function TransactionForm() {
         return
       }
       
-      // Match card_last_four to cards and set selected=true by default
+      // Match card_last_four to cards and set selected=true by default (if not duplicate)
       const parsed = (result.transactions || []).map((tx: ParsedTransaction) => {
         const matchedCard = cards.find(c => 
           tx.card_last_four && c.name.includes(tx.card_last_four)
         )
         return {
           ...tx,
-          selected: true,
+          selected: !tx.is_duplicate,
           card_id: matchedCard?.id || cards[0]?.id,
         }
       })
@@ -172,7 +173,10 @@ export default function TransactionForm() {
     }))
     
     try {
-      await api.createTransactionsBulk(transactions)
+      const result = await api.createTransactionsBulk(transactions)
+      if (result.skipped_count > 0) {
+        alert(`${result.created_count}건이 등록되었습니다. (중복 ${result.skipped_count}건 제외)`)
+      }
       navigate('/transactions')
     } catch (err) {
       console.error('Failed to create:', err)
@@ -303,7 +307,7 @@ export default function TransactionForm() {
             {parsedTransactions.map((tx, index) => (
               <div 
                 key={index} 
-                className={`${styles.parsedItem} ${tx.selected ? styles.selected : ''}`}
+                className={`${styles.parsedItem} ${tx.selected ? styles.selected : ''} ${tx.is_duplicate ? styles.duplicate : ''}`}
               >
                 <button 
                   className={styles.selectBtn}
@@ -313,7 +317,10 @@ export default function TransactionForm() {
                 </button>
                 <div className={styles.parsedContent}>
                   <div className={styles.parsedTop}>
-                    <span className={styles.parsedDate}>{tx.date}</span>
+                    <div>
+                      <span className={styles.parsedDate}>{tx.date}</span>
+                      {tx.is_duplicate && <span className={styles.duplicateTag}>이미 등록됨</span>}
+                    </div>
                     <span className={styles.parsedAmount}>{formatAmount(tx.amount)}</span>
                   </div>
                   <div className={styles.parsedDesc}>{tx.description}</div>
