@@ -9,6 +9,9 @@ WorkingDirectory=/home/exedev/myledger
 ExecStart=/home/exedev/myledger/myledger -listen :8000
 Restart=always
 RestartSec=5
+# Uncomment and set your Anthropic API key to enable image parsing
+# Environment=ANTHROPIC_API_KEY=your_api_key_here
+EnvironmentFile=-/home/exedev/myledger/.env
 
 [Install]
 WantedBy=multi-user.target
