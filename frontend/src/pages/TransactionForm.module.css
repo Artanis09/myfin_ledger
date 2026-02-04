@@ -1,12 +1,13 @@
 .page {
   min-height: 100vh;
   background: var(--bg-secondary);
+  padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 .header {
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -14,6 +15,18 @@
   gap: 12px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
+}
+
+/* iOS standalone mode (PWA) */
+@supports (padding-top: env(safe-area-inset-top)) {
+  @media all and (display-mode: standalone) {
+    .page {
+      padding-top: env(safe-area-inset-top);
+    }
+    .header {
+      top: env(safe-area-inset-top);
+    }
+  }
 }
 
 .header h1 {
