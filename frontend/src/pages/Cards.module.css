@@ -19,17 +19,18 @@
 }
 
 .list {
-  padding: 16px 20px;
+  padding: 0;
 }
 
 .item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
+  padding: 16px 20px;
   background: var(--bg-secondary);
-  border-radius: 12px;
-  margin-bottom: 12px;
+  border-radius: 0;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .itemMain {

@@ -1,12 +1,11 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { Home, Receipt, BarChart3, CreditCard, Settings } from 'lucide-react'
+import { Home, Receipt, BarChart3, Settings } from 'lucide-react'
 import styles from './Layout.module.css'
 
 const navItems = [
   { path: '/', icon: Home, label: '홈' },
   { path: '/transactions', icon: Receipt, label: '내역' },
   { path: '/statistics', icon: BarChart3, label: '통계' },
-  { path: '/cards', icon: CreditCard, label: '카드' },
   { path: '/settings', icon: Settings, label: '설정' },
 ]
 

@@ -1,13 +1,18 @@
 .container {
-  padding: 0 16px;
+  padding: 0;
 }
 
 .dayGroup {
-  margin-bottom: 16px;
+  margin-bottom: 0;
   background: var(--bg-secondary);
-  border-radius: 16px;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: var(--card-shadow);
+  box-shadow: none;
+  border-bottom: 8px solid var(--bg-primary);
+}
+
+.dayGroup:last-child {
+  border-bottom: none;
 }
 
 .dayHeader {

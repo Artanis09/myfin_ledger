@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"log/slog"
-
 	"srv.exe.dev/db/dbgen"
 )
 

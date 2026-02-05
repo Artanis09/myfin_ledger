@@ -4,48 +4,92 @@
 }
 
 .section {
-  padding: 16px 20px;
   background: var(--bg-secondary);
   margin-top: 8px;
 }
 
 .sectionTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-tertiary);
-  margin-bottom: 12px;
+  padding: 12px 20px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border-color);
+  padding: 14px 20px;
   cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .item:last-child {
   border-bottom: none;
 }
 
+.item:active {
+  background: var(--bg-tertiary);
+}
+
 .itemLeft {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+}
+
+.itemLeft svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: 16px;
+  font-weight: 500;
   color: var(--text-primary);
 }
 
-.itemLeft span {
-  font-size: 16px;
+.itemSubtitle {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.itemRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .arrow {
-  font-size: 20px;
   color: var(--text-tertiary);
+}
+
+.chevron {
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.chevron.open {
+  transform: rotate(90deg);
+}
+
+.colorPreview {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
 }
 
 .toggle {
@@ -55,6 +99,7 @@
   border-radius: 14px;
   position: relative;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 
 .toggle.active {
@@ -85,11 +130,16 @@
 }
 
 /* 색상 피커 */
+.colorPickerWrapper {
+  background: var(--bg-tertiary);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
 .colorPicker {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 8px 0;
 }
 
 .colorBtn {
