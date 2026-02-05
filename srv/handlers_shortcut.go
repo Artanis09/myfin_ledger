@@ -20,6 +20,14 @@ import (
 // Headers: X-API-Key: <api_key>
 // Body: {"text": "SMS message content"}
 func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
+	// Panic recovery to prevent system crash
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic in HandleShortcutMessage", "error", r)
+			http.Error(w, `{"error": "internal server error"}`, http.StatusInternalServerError)
+		}
+	}()
+
 	// 1. Validate API key
 	apiKey := r.Header.Get("X-API-Key")
 	if apiKey == "" {
@@ -68,7 +76,7 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 	var savedCount, errorCount int
 
 	for _, smsText := range smsTexts {
-		result := s.processSingleSMS(r.Context(), queries, smsText)
+		result := s.processSingleSMSV2(r.Context(), queries, smsText)
 		results = append(results, result)
 		if result["status"] == "saved" {
 			savedCount++
@@ -83,11 +91,11 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(results[0])
 	} else {
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":      "processed",
-			"total":       len(results),
-			"saved":       savedCount,
-			"errors":      errorCount,
-			"results":     results,
+			"status":  "processed",
+			"total":   len(results),
+			"saved":   savedCount,
+			"errors":  errorCount,
+			"results": results,
 		})
 	}
 }
@@ -111,8 +119,15 @@ func splitMultipleSMS(text string) []string {
 	return result
 }
 
-// processSingleSMS processes a single SMS message and returns the result
-func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, smsText string) map[string]interface{} {
+// processSingleSMSV2 processes a single SMS message using V2 API and returns the result
+func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries, smsText string) map[string]interface{} {
+	// Panic recovery for individual SMS processing
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic in processSingleSMSV2", "error", r, "sms_text", smsText[:min(100, len(smsText))])
+		}
+	}()
+
 	// Parse SMS
 	parsed := parseSMS(smsText)
 
@@ -151,131 +166,175 @@ func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, s
 	var status = "parsed"
 	var errorMsg *string
 
-	if parsed.CardName != "" && parsed.Amount > 0 {
-		// Find card by name
-		card, err := queries.GetCardByName(ctx, parsed.CardName)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				errStr := "card not found: " + parsed.CardName
-				errorMsg = &errStr
-				status = "error"
-			} else {
-				slog.Error("failed to find card", "error", err)
-			}
-		} else {
-			// Parse transaction date
-			transDate := time.Now()
-			if parsed.Date != "" {
-				if t, err := time.Parse("2006-01-02", parsed.Date); err == nil {
-					transDate = t
-					if parsed.Time != "" {
-						parts := strings.Split(parsed.Time, ":")
-						if len(parts) == 2 {
-							var hour, min int
-							hour = parseInt(parts[0])
-							min = parseInt(parts[1])
-							transDate = time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, time.Local)
-						}
-					}
-				}
-			}
-
-			// Find matching category
-			var categoryID *int64
-			categories, _ := queries.GetAllCategories(ctx)
-			for _, cat := range categories {
-				keywords := strings.Split(cat.Keywords, ",")
-				for _, kw := range keywords {
-					kw = strings.TrimSpace(kw)
-					if kw != "" && strings.Contains(strings.ToLower(parsed.Description), strings.ToLower(kw)) {
-						categoryID = &cat.ID
-						break
-					}
-				}
-				if categoryID != nil {
-					break
-				}
-			}
-
-			// Check for duplicate transaction
-			var dupCount int64
-			dateStr := transDate.Format("2006-01-02")
-			err = s.DB.QueryRowContext(ctx,
-				`SELECT COUNT(*) FROM transactions WHERE card_id = ? AND amount = ? AND description = ? AND substr(transaction_date, 1, 10) = ?`,
-				card.ID, parsed.Amount, parsed.Description, dateStr,
-			).Scan(&dupCount)
-			if err == nil && dupCount > 0 {
-				errStr := "duplicate transaction: already exists"
-				errorMsg = &errStr
-				status = "duplicate"
-				// Update SMS log and return early
-				queries.UpdateSMSLogStatus(ctx, dbgen.UpdateSMSLogStatusParams{
-					ID:           smsLog.ID,
-					Status:       status,
-					ErrorMessage: errorMsg,
-				})
-				return map[string]interface{}{
-					"status":     status,
-					"sms_log_id": smsLog.ID,
-					"error":      *errorMsg,
-					"parsed": map[string]interface{}{
-						"card_name":   parsed.CardName,
-						"amount":      parsed.Amount,
-						"description": parsed.Description,
-						"date":        parsed.Date,
-						"time":        parsed.Time,
-					},
-				}
-			}
-
-			// Create transaction
-			var installmentMonths, installmentCurrent, originalAmount *int64
-			var isInstallment int64 = 0
-			if parsed.IsInstallment {
-				isInstallment = 1
-				installmentMonths = &parsed.InstallmentMonths
-				var current int64 = 1
-				installmentCurrent = &current
-				original := parsed.Amount * parsed.InstallmentMonths
-				originalAmount = &original
-			}
-
-			var isCancelled int64 = 0
-			if parsed.IsCancelled {
-				isCancelled = 1
-			}
-			
-			trans, err := queries.CreateTransaction(ctx, dbgen.CreateTransactionParams{
-				CardID:             card.ID,
-				CategoryID:         categoryID,
-				TransactionDate:    transDate,
-				Description:        parsed.Description,
-				Amount:             parsed.Amount,
-				IsInstallment:      isInstallment,
-				InstallmentMonths:  installmentMonths,
-				InstallmentCurrent: installmentCurrent,
-				OriginalAmount:     originalAmount,
-				IsCancelled:        isCancelled,
-			})
-			if err != nil {
-				slog.Error("failed to create transaction", "error", err)
-				errStr := "failed to create transaction: " + err.Error()
-				errorMsg = &errStr
-				status = "error"
-			} else {
-				transactionID = &trans.ID
-				status = "saved"
-				slog.Info("created transaction from SMS",
-					"transaction_id", trans.ID,
-					"card", parsed.CardName,
-					"amount", parsed.Amount,
-					"description", parsed.Description)
-			}
-		}
-	} else {
-		errStr := "could not parse SMS: missing card name or amount"
+	// 금액이 없으면 에러
+	if parsed.Amount <= 0 {
+		errStr := "금액을 파싱할 수 없습니다"
 		errorMsg = &errStr
 		status = "error"
+		queries.UpdateSMSLogStatus(ctx, dbgen.UpdateSMSLogStatusParams{
+			ID:           smsLog.ID,
+			Status:       status,
+			ErrorMessage: errorMsg,
+		})
+		return map[string]interface{}{
+			"status":     status,
+			"sms_log_id": smsLog.ID,
+			"error":      *errorMsg,
+			"parsed":     buildParsedResult(parsed),
+		}
+	}
+
+	// Parse transaction date
+	transDate := time.Now()
+	if parsed.Date != "" {
+		if t, err := time.Parse("2006-01-02", parsed.Date); err == nil {
+			transDate = t
+			if parsed.Time != "" {
+				parts := strings.Split(parsed.Time, ":")
+				if len(parts) == 2 {
+					hour := parseInt(parts[0])
+					min := parseInt(parts[1])
+					transDate = time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, time.Local)
+				}
+			}
+		}
+	}
+
+	// V2 방식: 거래 유형에 따라 자산 유형 결정
+	var assetTypeID *int64
+	var cardID *int64
+
+	if parsed.TxType == "transfer" {
+		// 이체인 경우: "이체" 자산 유형 사용
+		row := s.DB.QueryRowContext(ctx, "SELECT id FROM asset_types WHERE name = '이체' AND type = 'expense' LIMIT 1")
+		var atID int64
+		if err := row.Scan(&atID); err == nil {
+			assetTypeID = &atID
+		}
+	} else if parsed.TxType == "card" && parsed.CardName != "" {
+		// 카드 결제인 경우: 카드사에 해당하는 자산 유형 찾기
+		row := s.DB.QueryRowContext(ctx,
+			"SELECT at.id, at.card_id FROM asset_types at WHERE at.name = ? AND at.type = 'expense' LIMIT 1",
+			parsed.CardName)
+		var atID int64
+		var cID sql.NullInt64
+		if err := row.Scan(&atID, &cID); err == nil {
+			assetTypeID = &atID
+			if cID.Valid {
+				cardID = &cID.Int64
+			}
+		} else {
+			// 자산 유형이 없으면 cards 테이블에서 카드 찾기
+			card, err := queries.GetCardByName(ctx, parsed.CardName)
+			if err == nil {
+				cardID = &card.ID
+				// 해당 카드의 자산 유형 찾기
+				row := s.DB.QueryRowContext(ctx,
+					"SELECT id FROM asset_types WHERE card_id = ? LIMIT 1", card.ID)
+				var atID int64
+				if err := row.Scan(&atID); err == nil {
+					assetTypeID = &atID
+				}
+			}
+		}
+	}
+
+	// 자산 유형을 찾지 못한 경우
+	if assetTypeID == nil {
+		// 기본값: 현금지출 또는 이체
+		assetName := "현금지출"
+		if parsed.TxType == "transfer" {
+			assetName = "이체"
+		}
+		row := s.DB.QueryRowContext(ctx, "SELECT id FROM asset_types WHERE name = ? AND type = 'expense' LIMIT 1", assetName)
+		var atID int64
+		if err := row.Scan(&atID); err == nil {
+			assetTypeID = &atID
+		}
+	}
+
+	// 카테고리 자동 매칭
+	var categoryID *int64
+	categories, _ := queries.GetAllCategories(ctx)
+	for _, cat := range categories {
+		keywords := strings.Split(cat.Keywords, ",")
+		for _, kw := range keywords {
+			kw = strings.TrimSpace(kw)
+			if kw != "" && strings.Contains(strings.ToLower(parsed.Description), strings.ToLower(kw)) {
+				categoryID = &cat.ID
+				break
+			}
+		}
+		if categoryID != nil {
+			break
+		}
+	}
+
+	// 중복 거래 체크
+	dateStr := transDate.Format("2006-01-02")
+	var dupCount int64
+	err = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM transactions 
+		 WHERE amount = ? AND description = ? AND substr(transaction_date, 1, 10) = ?
+		 AND (card_id = ? OR (card_id IS NULL AND ? IS NULL))`,
+		parsed.Amount, parsed.Description, dateStr, cardID, cardID,
+	).Scan(&dupCount)
+	if err == nil && dupCount > 0 {
+		errStr := "중복 거래: 이미 동일한 거래가 존재합니다"
+		errorMsg = &errStr
+		status = "duplicate"
+		queries.UpdateSMSLogStatus(ctx, dbgen.UpdateSMSLogStatusParams{
+			ID:           smsLog.ID,
+			Status:       status,
+			ErrorMessage: errorMsg,
+		})
+		return map[string]interface{}{
+			"status":     status,
+			"sms_log_id": smsLog.ID,
+			"error":      *errorMsg,
+			"parsed":     buildParsedResult(parsed),
+		}
+	}
+
+	// 할부 정보 준비
+	var installmentMonths *int64
+	var isInstallment int64 = 0
+	if parsed.IsInstallment && parsed.InstallmentMonths > 0 {
+		isInstallment = 1
+		installmentMonths = &parsed.InstallmentMonths
+	}
+
+	var isCancelled int64 = 0
+	if parsed.IsCancelled {
+		isCancelled = 1
+	}
+
+	// V2 트랜잭션 생성
+	execResult, err := s.DB.ExecContext(ctx, `
+		INSERT INTO transactions (
+			tx_type, asset_type_id, card_id, category_id, 
+			transaction_date, description, amount, 
+			is_installment, installment_months, is_cancelled
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"expense", assetTypeID, cardID, categoryID,
+		transDate, parsed.Description, parsed.Amount,
+		isInstallment, installmentMonths, isCancelled,
+	)
+	if err != nil {
+		slog.Error("failed to create transaction", "error", err)
+		errStr := "거래 생성 실패: " + err.Error()
+		errorMsg = &errStr
+		status = "error"
+	} else {
+		txID, _ := execResult.LastInsertId()
+		transactionID = &txID
+		status = "saved"
+		slog.Info("created transaction from SMS",
+			"transaction_id", txID,
+			"tx_type", parsed.TxType,
+			"asset_type", parsed.AssetTypeName,
+			"amount", parsed.Amount,
+			"description", parsed.Description)
 	}
 
 	// Update SMS log status
@@ -289,13 +348,7 @@ func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, s
 	result := map[string]interface{}{
 		"status":     status,
 		"sms_log_id": smsLog.ID,
-		"parsed": map[string]interface{}{
-			"card_name":   parsed.CardName,
-			"amount":      parsed.Amount,
-			"description": parsed.Description,
-			"date":        parsed.Date,
-			"time":        parsed.Time,
-		},
+		"parsed":     buildParsedResult(parsed),
 	}
 	if transactionID != nil {
 		result["transaction_id"] = *transactionID
@@ -304,6 +357,24 @@ func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, s
 		result["error"] = *errorMsg
 	}
 	return result
+}
+
+// buildParsedResult creates a map from ParsedSMS for JSON response
+func buildParsedResult(parsed ParsedSMS) map[string]interface{} {
+	return map[string]interface{}{
+		"card_name":   parsed.CardName,
+		"amount":      parsed.Amount,
+		"description": parsed.Description,
+		"date":        parsed.Date,
+		"time":        parsed.Time,
+		"tx_type":     parsed.TxType,
+		"asset_type":  parsed.AssetTypeName,
+	}
+}
+
+// Legacy method for backward compatibility
+func (s *Server) processSingleSMS(ctx context.Context, queries *dbgen.Queries, smsText string) map[string]interface{} {
+	return s.processSingleSMSV2(ctx, queries, smsText)
 }
 
 // HandleGenerateAPIKey creates a new API key
@@ -453,4 +524,11 @@ func parseInt64(s string) int64 {
 		}
 	}
 	return n
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
