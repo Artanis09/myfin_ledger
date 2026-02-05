@@ -49,8 +49,8 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update last used timestamp
-	go queries.UpdateAPIKeyLastUsed(context.Background(), apiKeyRecord.ID)
+	// Update last used timestamp (동기 실행으로 변경 - DB lock 방지)
+	_ = queries.UpdateAPIKeyLastUsed(r.Context(), apiKeyRecord.ID)
 
 	// 2. Parse request body
 	var req struct {
@@ -75,8 +75,9 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 	var results []map[string]interface{}
 	var savedCount, errorCount int
 
+	// SMS를 큐에 넣고 순차적으로 처리 (DB lock 방지)
 	for _, smsText := range smsTexts {
-		result := s.processSingleSMSV2(r.Context(), queries, smsText)
+		result := s.QueueSMS(smsText)
 		if result == nil {
 			result = map[string]interface{}{"status": "error", "error": "processing failed"}
 		}
@@ -334,13 +335,19 @@ func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries,
 	}
 
 	// V2 트랜잭션 생성
+	// tx_type: income(입금), expense(출금/카드)
+	txType := parsed.TxType
+	if txType == "" || txType == "transfer" || txType == "card" {
+		txType = "expense" // 기본값은 지출
+	}
+	
 	execResult, err := s.DB.ExecContext(ctx, `
 		INSERT INTO transactions (
 			tx_type, asset_type_id, card_id, category_id, 
 			transaction_date, description, amount, 
 			is_installment, installment_months, is_cancelled
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"expense", assetTypeID, cardID, categoryID,
+		txType, assetTypeID, cardID, categoryID,
 		transDate, parsed.Description, parsed.Amount,
 		isInstallment, installmentMonths, isCancelled,
 	)
@@ -555,4 +562,11 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// processSingleSMSV2WithDB는 DB 연결을 생성하고 SMS를 처리합니다 (워커용)
+func (s *Server) processSingleSMSV2WithDB(smsText string) map[string]interface{} {
+	ctx := context.Background()
+	queries := dbgen.New(s.DB)
+	return s.processSingleSMSV2(ctx, queries, smsText)
 }

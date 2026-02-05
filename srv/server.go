@@ -17,6 +17,13 @@ type Server struct {
 	DB           *sql.DB
 	Hostname     string
 	StaticDir    string
+	smsQueue     chan smsJob  // SMS 처리 큐
+}
+
+// smsJob은 SMS 처리 작업을 나타냅니다
+type smsJob struct {
+	text     string
+	resultCh chan map[string]interface{}
 }
 
 func New(dbPath, hostname string) (*Server, error) {
@@ -25,10 +32,15 @@ func New(dbPath, hostname string) (*Server, error) {
 	srv := &Server{
 		Hostname:  hostname,
 		StaticDir: filepath.Join(baseDir, "static"),
+		smsQueue:  make(chan smsJob, 100), // 버퍼 크기 100
 	}
 	if err := srv.setUpDatabase(dbPath); err != nil {
 		return nil, err
 	}
+	
+	// SMS 처리 워커 시작
+	go srv.smsWorker()
+	
 	return srv, nil
 }
 
@@ -175,4 +187,21 @@ func calculateBillingPeriod(now time.Time, startDay, endDay int) (time.Time, tim
 	}
 	
 	return start, end
+}
+
+// smsWorker는 SMS 처리 큐를 순차적으로 처리하는 워커입니다
+func (s *Server) smsWorker() {
+	slog.Info("SMS worker started")
+	for job := range s.smsQueue {
+		// 순차적으로 SMS 처리
+		result := s.processSingleSMSV2WithDB(job.text)
+		job.resultCh <- result
+	}
+}
+
+// QueueSMS는 SMS를 큐에 추가하고 결과를 기다립니다
+func (s *Server) QueueSMS(text string) map[string]interface{} {
+	resultCh := make(chan map[string]interface{}, 1)
+	s.smsQueue <- smsJob{text: text, resultCh: resultCh}
+	return <-resultCh
 }

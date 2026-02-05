@@ -48,11 +48,15 @@ func parseSMS(text string) ParsedSMS {
 		return result
 	}
 
-	// 1. 거래 유형 판단: 출금 vs 승인
+	// 1. 거래 유형 판단: 입금(income) vs 출금(transfer) vs 승인(card)
+	isDeposit := strings.Contains(text, "입금")
 	isWithdrawal := strings.Contains(text, "출금")
 	isApproval := strings.Contains(text, "승인")
 
-	if isWithdrawal {
+	if isDeposit {
+		result.TxType = "income"
+		result.AssetTypeName = "입금"
+	} else if isWithdrawal {
 		result.TxType = "transfer"
 		result.AssetTypeName = "이체"
 	} else if isApproval {

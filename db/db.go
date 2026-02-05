@@ -37,6 +37,10 @@ func Open(path string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("set busy_timeout: %w", err)
 	}
+	
+	// SQLite는 동시 쓰기를 지원하지 않으므로 단일 연결만 사용
+	db.SetMaxOpenConns(1)
+	
 	return db, nil
 }
 
