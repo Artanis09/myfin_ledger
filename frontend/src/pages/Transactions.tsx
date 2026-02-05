@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addMonths, subMonths } from 'date-fns'
-import { Search, X, CreditCard, Target, Edit2, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react'
+import { Search, X, CreditCard, Target, Edit2, TrendingUp, TrendingDown, BarChart3, ChevronDown, ChevronUp } from 'lucide-react'
 import Header from '../components/Header'
 import TransactionList from '../components/TransactionList'
 import FloatingButton from '../components/FloatingButton'
@@ -47,6 +47,10 @@ export default function Transactions() {
   const [goal, setGoal] = useState<number | null>(null)
   const [showGoalInput, setShowGoalInput] = useState(false)
   const [goalInput, setGoalInput] = useState('')
+  const [billingExpanded, setBillingExpanded] = useState<boolean>(() => {
+    const saved = localStorage.getItem('billingExpanded')
+    return saved !== 'false' // 기본값 true (펼쳐진 상태)
+  })
   
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -164,6 +168,12 @@ export default function Transactions() {
   const isOverBudget = goal ? totalBilling > goal : false
   const maxWeekTotal = Math.max(...weeklyStats.map(w => w.total), 1)
   
+  const toggleBillingExpanded = () => {
+    const newValue = !billingExpanded
+    setBillingExpanded(newValue)
+    localStorage.setItem('billingExpanded', String(newValue))
+  }
+  
   const handleSetGoal = async () => {
     const amount = parseInt(goalInput.replace(/,/g, ''), 10)
     if (isNaN(amount) || amount <= 0) {
@@ -227,52 +237,57 @@ export default function Transactions() {
             </div>
           )}
           
-          {/* 필터 바 */}
+          {/* 필터 바 - 1행: 검색, 카드, 카테고리 */}
           <div className={styles.filterBar}>
-            <div className={styles.filterGroup}>
-              <button 
-                className={`${styles.filterBtn} ${showSearch || searchQuery ? styles.active : ''}`}
-                onClick={() => setShowSearch(!showSearch)}
-              >
-                <Search size={14} />
-              </button>
+            <div className={styles.filterRow}>
+              <div className={styles.filterGroup}>
+                <button 
+                  className={`${styles.filterBtn} ${showSearch || searchQuery ? styles.active : ''}`}
+                  onClick={() => setShowSearch(!showSearch)}
+                >
+                  <Search size={14} />
+                </button>
+                
+                <select
+                  className={`${styles.filterSelect} ${selectedCardId !== null ? styles.active : ''}`}
+                  value={selectedCardId ?? ''}
+                  onChange={e => setSelectedCardId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">전체 카드</option>
+                  {cards.map(card => (
+                    <option key={card.id} value={card.id}>{card.name}</option>
+                  ))}
+                </select>
+                
+                <select
+                  className={`${styles.filterSelect} ${selectedCategoryId !== null ? styles.active : ''}`}
+                  value={selectedCategoryId ?? ''}
+                  onChange={e => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">전체 카테고리</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
               
-              <select
-                className={`${styles.filterSelect} ${selectedCardId !== null ? styles.active : ''}`}
-                value={selectedCardId ?? ''}
-                onChange={e => setSelectedCardId(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">전체 카드</option>
-                {cards.map(card => (
-                  <option key={card.id} value={card.id}>{card.name}</option>
-                ))}
-              </select>
-              
-              <select
-                className={`${styles.filterSelect} ${selectedCategoryId !== null ? styles.active : ''}`}
-                value={selectedCategoryId ?? ''}
-                onChange={e => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">전체 카테고리</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-              
-              <button 
-                className={`${styles.filterBtn} ${showOnlyInstallment ? styles.active : ''}`}
-                onClick={() => setShowOnlyInstallment(!showOnlyInstallment)}
-              >
-                할부
-              </button>
-            </div>
-            
-            <div className={styles.sortGroup}>
               {hasActiveFilters && (
                 <button className={styles.clearFilterBtn} onClick={clearFilters}>
                   초기화
                 </button>
               )}
+            </div>
+            
+            {/* 필터 바 - 2행: 할부, 정렬 */}
+            <div className={styles.filterRow}>
+              <div className={styles.filterGroup}>
+                <button 
+                  className={`${styles.filterBtn} ${showOnlyInstallment ? styles.active : ''}`}
+                  onClick={() => setShowOnlyInstallment(!showOnlyInstallment)}
+                >
+                  할부만 보기
+                </button>
+              </div>
               
               <select 
                 className={styles.sortSelect}
@@ -286,17 +301,14 @@ export default function Transactions() {
               </select>
             </div>
           </div>
-
-          {/* 지출 요약 */}
-          <div className={styles.summary}>
-            <div className={styles.summaryItem}>
-              <span className={styles.summaryLabel}>지출</span>
-              <span className={styles.summaryExpense}>{totalExpense.toLocaleString()}원</span>
-            </div>
-          </div>
           
-          {/* 구분선 */}
-          <div className={styles.divider} />
+          {/* 필터 아래 구분선 */}
+          <div className={styles.filterDivider} />
+
+          {/* 지출 합계 */}
+          <div className={styles.summary}>
+            <span className={styles.totalAmount}>{totalExpense.toLocaleString()}원</span>
+          </div>
           
           {filteredAndSortedTransactions.length > 0 ? (
             <TransactionList 
@@ -317,17 +329,22 @@ export default function Transactions() {
           {/* 지출관리 탭 */}
           {/* 예상 결제 금액 */}
           <div className={styles.billingSection}>
-            <div className={styles.billingHeader}>
-              <div className={styles.billingIconWrapper}>
-                <CreditCard size={20} />
+            <div className={styles.billingHeader} onClick={toggleBillingExpanded}>
+              <div className={styles.billingLeft}>
+                <div className={styles.billingIconWrapper}>
+                  <CreditCard size={20} />
+                </div>
+                <div className={styles.billingHeaderInfo}>
+                  <span className={styles.billingTitle}>예상 결제 금액</span>
+                  <span className={styles.billingTotal}>{totalBilling.toLocaleString()}원</span>
+                </div>
               </div>
-              <div className={styles.billingHeaderInfo}>
-                <span className={styles.billingTitle}>예상 결제 금액</span>
-                <span className={styles.billingTotal}>{totalBilling.toLocaleString()}원</span>
+              <div className={styles.billingToggle}>
+                {billingExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </div>
             </div>
             
-            {billingPeriods.length > 0 ? (
+            {billingExpanded && billingPeriods.length > 0 && (
               <div className={styles.billingList}>
                 {billingPeriods.map(bp => (
                   <div key={bp.card_id} className={styles.billingItem}>
@@ -341,7 +358,9 @@ export default function Transactions() {
                   </div>
                 ))}
               </div>
-            ) : (
+            )}
+            
+            {billingPeriods.length === 0 && (
               <div className={styles.noBilling}>
                 <p>이 달 결제 예정 내역이 없습니다</p>
               </div>
@@ -447,7 +466,7 @@ export default function Transactions() {
         </>
       )}
       
-      <FloatingButton />
+      {activeTab === 'history' && <FloatingButton />}
     </div>
   )
 }
