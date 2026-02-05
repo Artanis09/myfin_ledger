@@ -260,20 +260,38 @@ func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries,
 		}
 	}
 
-	// 카테고리 자동 매칭
+	// 카테고리 자동 매칭 (1. 사용자 매핑 테이블 우선, 2. 키워드 매칭)
 	var categoryID *int64
-	categories, _ := queries.GetAllCategories(ctx)
-	for _, cat := range categories {
-		keywords := strings.Split(cat.Keywords, ",")
-		for _, kw := range keywords {
-			kw = strings.TrimSpace(kw)
-			if kw != "" && strings.Contains(strings.ToLower(parsed.Description), strings.ToLower(kw)) {
-				categoryID = &cat.ID
+	
+	// 1. 카테고리 매핑 테이블에서 먼저 조회
+	normalizedDesc := normalizeDescription(parsed.Description)
+	var mappedCategoryID int64
+	err = s.DB.QueryRowContext(ctx,
+		`SELECT category_id FROM category_mappings WHERE normalized_description = ?`,
+		normalizedDesc).Scan(&mappedCategoryID)
+	if err == nil && mappedCategoryID > 0 {
+		categoryID = &mappedCategoryID
+		// 사용 횟수 증가
+		s.DB.ExecContext(ctx,
+			`UPDATE category_mappings SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP WHERE normalized_description = ?`,
+			normalizedDesc)
+	}
+	
+	// 2. 매핑이 없으면 키워드 기반 매칭
+	if categoryID == nil {
+		categories, _ := queries.GetAllCategories(ctx)
+		for _, cat := range categories {
+			keywords := strings.Split(cat.Keywords, ",")
+			for _, kw := range keywords {
+				kw = strings.TrimSpace(kw)
+				if kw != "" && strings.Contains(strings.ToLower(parsed.Description), strings.ToLower(kw)) {
+					categoryID = &cat.ID
+					break
+				}
+			}
+			if categoryID != nil {
 				break
 			}
-		}
-		if categoryID != nil {
-			break
 		}
 	}
 

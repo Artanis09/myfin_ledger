@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -854,4 +857,145 @@ func (s *Server) HandleAPIDashboardV2(w http.ResponseWriter, r *http.Request) {
 		"transactions":      transactions,
 		"daily_summary":     dailySummary,
 	})
+}
+
+// ========== Category Mapping API ==========
+
+// normalizeDescription 정규화된 description 생성 (공백 제거, 소문자, 특수문자 간소화)
+func normalizeDescription(desc string) string {
+	// 공백 제거
+	desc = strings.ReplaceAll(desc, " ", "")
+	// 괄호 안 내용 제거 (지점명 등)
+	re := regexp.MustCompile(`\([^)]*\)`)
+	desc = re.ReplaceAllString(desc, "")
+	// 소문자 변환
+	desc = strings.ToLower(desc)
+	return desc
+}
+
+// HandleAPIGetCategoryMapping 특정 description에 대한 카테고리 매핑 조회
+func (s *Server) HandleAPIGetCategoryMapping(w http.ResponseWriter, r *http.Request) {
+	desc := r.URL.Query().Get("description")
+	if desc == "" {
+		s.writeJSON(w, map[string]any{"category_id": nil, "category_name": ""})
+		return
+	}
+	
+	normalized := normalizeDescription(desc)
+	
+	var categoryID int64
+	var categoryName string
+	err := s.DB.QueryRowContext(r.Context(), `
+		SELECT cm.category_id, c.name 
+		FROM category_mappings cm
+		JOIN categories c ON cm.category_id = c.id
+		WHERE cm.normalized_description = ?`, normalized).Scan(&categoryID, &categoryName)
+	
+	if err != nil {
+		s.writeJSON(w, map[string]any{"category_id": nil, "category_name": ""})
+		return
+	}
+	
+	s.writeJSON(w, map[string]any{
+		"category_id":   categoryID,
+		"category_name": categoryName,
+	})
+}
+
+// HandleAPISaveCategoryMapping 카테고리 매핑 저장/업데이트
+func (s *Server) HandleAPISaveCategoryMapping(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Description string `json:"description"`
+		CategoryID  int64  `json:"category_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	
+	if req.Description == "" || req.CategoryID == 0 {
+		http.Error(w, "description and category_id required", http.StatusBadRequest)
+		return
+	}
+	
+	normalized := normalizeDescription(req.Description)
+	
+	// UPSERT: 있으면 업데이트, 없으면 삽입
+	_, err := s.DB.ExecContext(r.Context(), `
+		INSERT INTO category_mappings (description, normalized_description, category_id, usage_count, updated_at)
+		VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
+		ON CONFLICT(normalized_description) DO UPDATE SET
+			category_id = excluded.category_id,
+			usage_count = usage_count + 1,
+			updated_at = CURRENT_TIMESTAMP`,
+		req.Description, normalized, req.CategoryID)
+	
+	if err != nil {
+		slog.Error("failed to save category mapping", "error", err)
+		http.Error(w, "failed to save mapping", http.StatusInternalServerError)
+		return
+	}
+	
+	// 카테고리 이름 조회
+	var categoryName string
+	s.DB.QueryRowContext(r.Context(), "SELECT name FROM categories WHERE id = ?", req.CategoryID).Scan(&categoryName)
+	
+	s.writeJSON(w, map[string]any{
+		"success":       true,
+		"category_id":   req.CategoryID,
+		"category_name": categoryName,
+	})
+}
+
+// HandleAPIGetAllCategoryMappings 모든 카테고리 매핑 목록 조회
+func (s *Server) HandleAPIGetAllCategoryMappings(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.DB.QueryContext(r.Context(), `
+		SELECT cm.id, cm.description, cm.category_id, c.name, cm.usage_count, cm.updated_at
+		FROM category_mappings cm
+		JOIN categories c ON cm.category_id = c.id
+		ORDER BY cm.usage_count DESC, cm.updated_at DESC`)
+	if err != nil {
+		http.Error(w, "failed to query mappings", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	
+	var mappings []map[string]any
+	for rows.Next() {
+		var id, categoryID, usageCount int64
+		var desc, categoryName, updatedAt string
+		rows.Scan(&id, &desc, &categoryID, &categoryName, &usageCount, &updatedAt)
+		mappings = append(mappings, map[string]any{
+			"id":            id,
+			"description":   desc,
+			"category_id":   categoryID,
+			"category_name": categoryName,
+			"usage_count":   usageCount,
+			"updated_at":    updatedAt,
+		})
+	}
+	
+	if mappings == nil {
+		mappings = []map[string]any{}
+	}
+	
+	s.writeJSON(w, map[string]any{"mappings": mappings})
+}
+
+// HandleAPIDeleteCategoryMapping 카테고리 매핑 삭제
+func (s *Server) HandleAPIDeleteCategoryMapping(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+	if id == 0 {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	
+	_, err := s.DB.ExecContext(r.Context(), "DELETE FROM category_mappings WHERE id = ?", id)
+	if err != nil {
+		http.Error(w, "failed to delete mapping", http.StatusInternalServerError)
+		return
+	}
+	
+	s.writeJSON(w, map[string]any{"success": true})
 }

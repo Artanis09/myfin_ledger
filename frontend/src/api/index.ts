@@ -204,5 +204,20 @@ export const api = {
     deleteRecurringSchedule: (id: number) => fetchJSON<any>(`/v2/recurring/${id}`, {
       method: 'DELETE',
     }),
+
+    // Category Mappings
+    getCategoryMapping: (description: string) => 
+      fetchJSON<{ category_id: number | null; category_name: string }>(
+        `/v2/category-mapping?description=${encodeURIComponent(description)}`
+      ),
+    saveCategoryMapping: (description: string, categoryId: number) => 
+      fetchJSON<{ success: boolean; category_id: number; category_name: string }>('/v2/category-mapping', {
+        method: 'POST',
+        body: JSON.stringify({ description, category_id: categoryId }),
+      }),
+    getAllCategoryMappings: () => fetchJSON<any>('/v2/category-mappings'),
+    deleteCategoryMapping: (id: number) => fetchJSON<any>(`/v2/category-mapping/${id}`, {
+      method: 'DELETE',
+    }),
   },
 }

@@ -373,3 +373,44 @@
   background: var(--modal-overlay);
   z-index: 100;
 }
+
+/* Category wrapper for tooltip positioning */
+.categoryWrapper {
+  position: relative;
+}
+
+/* Category mapping tooltip */
+.mappingTooltip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e8f4fd 100%);
+  border: 1px solid #c5dff8;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #4a7fb5;
+  animation: tooltipSlideIn 0.3s ease-out;
+}
+
+.mappingTooltip svg {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.mappingTooltip strong {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+@keyframes tooltipSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

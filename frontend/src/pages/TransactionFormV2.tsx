@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { ChevronLeft, Minus, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, Minus, Plus, Trash2, Sparkles } from 'lucide-react'
 import { api } from '../api'
 import type { AssetType, Category, IncomeCategory } from '../types'
 import styles from './TransactionFormV2.module.css'
@@ -28,6 +28,11 @@ export default function TransactionFormV2() {
   const [incomeAssets, setIncomeAssets] = useState<AssetType[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([])
+  
+  // Category mapping tooltip
+  const [mappingTooltip, setMappingTooltip] = useState<{ show: boolean; categoryName: string } | null>(null)
+  const [originalCategoryId, setOriginalCategoryId] = useState<number | ''>('')
+  const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   const [showAddAsset, setShowAddAsset] = useState(false)
   const [showAddCategory, setShowAddCategory] = useState(false)
@@ -73,7 +78,9 @@ export default function TransactionFormV2() {
       setDate(tx.transaction_date?.substring(0, 10) || format(new Date(), 'yyyy-MM-dd'))
       setAmount(tx.amount ? new Intl.NumberFormat('ko-KR').format(tx.amount) : '')
       setDescription(tx.description || '')
-      setCategoryId(tx.category_id || '')
+      const catId = tx.category_id || ''
+      setCategoryId(catId)
+      setOriginalCategoryId(catId)  // 원래 카테고리 저장 (변경 감지용)
       setIncomeCategoryId(tx.income_category_id || '')
       setMemo(tx.memo || '')
       setIsRecurring(tx.is_recurring === 1)
@@ -81,6 +88,37 @@ export default function TransactionFormV2() {
       console.error('Failed to load transaction:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 카테고리 변경 시 매핑 저장 및 툴팁 표시
+  const handleCategoryChange = async (value: string) => {
+    if (value === 'add') {
+      setShowAddCategory(true)
+      return
+    }
+    
+    const newCategoryId = value ? Number(value) : ''
+    setCategoryId(newCategoryId)
+    
+    // 사용내역이 있고, 카테고리가 변경된 경우 (수정 모드에서 원래 카테고리와 다른 경우)
+    const isNewOrChanged = !isEdit || (isEdit && newCategoryId !== originalCategoryId)
+    if (description && newCategoryId && isNewOrChanged) {
+      try {
+        const result = await api.v2.saveCategoryMapping(description, Number(newCategoryId))
+        if (result.success) {
+          // 툴팁 표시
+          if (tooltipTimer.current) clearTimeout(tooltipTimer.current)
+          setMappingTooltip({ show: true, categoryName: result.category_name })
+          
+          // 3초 후 툴팁 숨김
+          tooltipTimer.current = setTimeout(() => {
+            setMappingTooltip(null)
+          }, 3000)
+        }
+      } catch (err) {
+        console.error('Failed to save category mapping:', err)
+      }
     }
   }
 
@@ -286,43 +324,45 @@ export default function TransactionFormV2() {
 
         <div className={styles.field}>
           <span className={styles.label}>카테고리</span>
-          <div className={styles.selectWrapper}>
-            {txType === 'expense' ? (
-              <select 
-                className={styles.select}
-                value={categoryId}
-                onChange={(e) => {
-                  if (e.target.value === 'add') {
-                    setShowAddCategory(true)
-                  } else {
-                    setCategoryId(e.target.value ? Number(e.target.value) : '')
-                  }
-                }}
-              >
-                <option value="">선택해주세요</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-                <option value="add">+ 카테고리 추가</option>
-              </select>
-            ) : (
-              <select 
-                className={styles.select}
-                value={incomeCategoryId}
-                onChange={(e) => {
-                  if (e.target.value === 'add') {
-                    setShowAddCategory(true)
-                  } else {
-                    setIncomeCategoryId(e.target.value ? Number(e.target.value) : '')
-                  }
-                }}
-              >
-                <option value="">선택해주세요</option>
-                {incomeCategories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-                <option value="add">+ 카테고리 추가</option>
-              </select>
+          <div className={styles.categoryWrapper}>
+            <div className={styles.selectWrapper}>
+              {txType === 'expense' ? (
+                <select 
+                  className={styles.select}
+                  value={categoryId}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                >
+                  <option value="">선택해주세요</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                  <option value="add">+ 카테고리 추가</option>
+                </select>
+              ) : (
+                <select 
+                  className={styles.select}
+                  value={incomeCategoryId}
+                  onChange={(e) => {
+                    if (e.target.value === 'add') {
+                      setShowAddCategory(true)
+                    } else {
+                      setIncomeCategoryId(e.target.value ? Number(e.target.value) : '')
+                    }
+                  }}
+                >
+                  <option value="">선택해주세요</option>
+                  {incomeCategories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                  <option value="add">+ 카테고리 추가</option>
+                </select>
+              )}
+            </div>
+            {mappingTooltip && mappingTooltip.show && (
+              <div className={styles.mappingTooltip}>
+                <Sparkles size={14} />
+                <span>다음부터 <strong>{mappingTooltip.categoryName}</strong>으로 자동 입력됩니다</span>
+              </div>
             )}
           </div>
         </div>

@@ -116,6 +116,12 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	mux.HandleFunc("GET /api/v2/recurring", s.HandleAPIGetRecurringSchedules)
 	mux.HandleFunc("DELETE /api/v2/recurring/{id}", s.HandleAPIDeleteRecurringSchedule)
 
+	// Category Mapping API
+	mux.HandleFunc("GET /api/v2/category-mappings", s.HandleAPIGetAllCategoryMappings)
+	mux.HandleFunc("GET /api/v2/category-mapping", s.HandleAPIGetCategoryMapping)
+	mux.HandleFunc("POST /api/v2/category-mapping", s.HandleAPISaveCategoryMapping)
+	mux.HandleFunc("DELETE /api/v2/category-mapping/{id}", s.HandleAPIDeleteCategoryMapping)
+
 	// Handle trailing slash redirects for API routes
 	mux.HandleFunc("/api/shortcut/keys/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/api/shortcut/keys", http.StatusMovedPermanently)
