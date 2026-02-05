@@ -189,3 +189,62 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
+
+/* 관리 기간 설정 */
+.periodSettingWrapper {
+  background: var(--bg-tertiary);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.periodSetting {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.periodRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.periodRow label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  width: 60px;
+}
+
+.periodRow select {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.saveBtn {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.periodNote {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}

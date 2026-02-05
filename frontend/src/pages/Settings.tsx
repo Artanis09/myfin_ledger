@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { Moon, Sun, CreditCard, Tag, Smartphone, Palette, ChevronRight, MessageSquare } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Moon, Sun, CreditCard, Tag, Smartphone, Palette, ChevronRight, MessageSquare, Calendar } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import Header from '../components/Header'
+import { api } from '../api'
 import styles from './Settings.module.css'
 
 const colorPresets = [
@@ -15,6 +16,34 @@ export default function Settings() {
   const navigate = useNavigate()
   const { theme, toggleTheme, billingColors, setBillingColor, showMemo, setShowMemo } = useTheme()
   const [showColorPicker, setShowColorPicker] = useState<'light' | 'dark' | null>(null)
+  const [showPeriodSetting, setShowPeriodSetting] = useState(false)
+  const [ledgerStartDay, setLedgerStartDay] = useState('1')
+  const [ledgerEndDay, setLedgerEndDay] = useState('31')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.v2.getSettings().then((data) => {
+      setLedgerStartDay(data.ledger_period_start_day || '1')
+      setLedgerEndDay(data.ledger_period_end_day || '31')
+    }).catch(console.error)
+  }, [])
+
+  const handleSavePeriod = async () => {
+    setSaving(true)
+    try {
+      await api.v2.updateSettings({
+        ledger_period_start_day: ledgerStartDay,
+        ledger_period_end_day: ledgerEndDay,
+      })
+      setShowPeriodSetting(false)
+    } catch (err) {
+      alert('저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1)
   
   return (
     <div className={styles.page}>
@@ -116,6 +145,44 @@ export default function Settings() {
                 />
                 <span>+</span>
               </label>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>가계부 설정</h3>
+        <div className={styles.item} onClick={() => setShowPeriodSetting(!showPeriodSetting)}>
+          <div className={styles.itemLeft}>
+            <Calendar size={20} />
+            <div className={styles.itemText}>
+              <span className={styles.itemTitle}>관리 기간</span>
+              <span className={styles.itemSubtitle}>매월 {ledgerStartDay}일 ~ {ledgerEndDay}일</span>
+            </div>
+          </div>
+          <ChevronRight size={20} className={`${styles.chevron} ${showPeriodSetting ? styles.open : ''}`} />
+        </div>
+        {showPeriodSetting && (
+          <div className={styles.periodSettingWrapper}>
+            <div className={styles.periodSetting}>
+              <div className={styles.periodRow}>
+                <label>시작일</label>
+                <select value={ledgerStartDay} onChange={e => setLedgerStartDay(e.target.value)}>
+                  {days.map(d => <option key={d} value={d}>{d}일</option>)}
+                </select>
+              </div>
+              <div className={styles.periodRow}>
+                <label>종료일</label>
+                <select value={ledgerEndDay} onChange={e => setLedgerEndDay(e.target.value)}>
+                  {days.map(d => <option key={d} value={d}>{d}일</option>)}
+                </select>
+              </div>
+              <button className={styles.saveBtn} onClick={handleSavePeriod} disabled={saving}>
+                {saving ? '저장 중...' : '저장'}
+              </button>
+              <p className={styles.periodNote}>
+                ※ 관리 기간이 월을 넘어갈 수 있습니다 (예: 23일 ~ 22일)
+              </p>
             </div>
           </div>
         )}

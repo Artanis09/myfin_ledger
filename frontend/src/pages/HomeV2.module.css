@@ -1,0 +1,530 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  padding-bottom: 80px;
+}
+
+/* Summary Card */
+.summary {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.summaryItem {
+  flex: 1;
+  text-align: center;
+  padding: 12px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+}
+
+.summaryLabel {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.summaryAmount {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.summaryAmount.income {
+  color: var(--income-color);
+}
+
+.summaryAmount.expense {
+  color: var(--expense-color);
+}
+
+.summaryAmount.balance {
+  color: var(--accent-color);
+}
+
+/* Tab Bar - 카드관리 스타일과 동일 */
+.tabBar {
+  display: flex;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab {
+  flex: 1;
+  padding: 14px 16px;
+  background: transparent;
+  border: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tab.activeTab {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.tab.activeTab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-color);
+}
+
+/* View Tabs (일일/달력/월별) - Secondary style */
+.viewTabs {
+  display: flex;
+  background: var(--bg-secondary);
+  padding: 12px 16px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.viewTab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.viewTab.active {
+  background: var(--accent-color);
+  color: white;
+}
+
+/* Content */
+.content {
+  padding: 0;
+}
+
+/* Daily View */
+.transactionList {
+  background: var(--bg-secondary);
+}
+
+.dayGroup {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.dayTotals {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dayTotals .income { color: var(--income-color); }
+.dayTotals .expense { color: var(--expense-color); }
+
+.txItem {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  cursor: pointer;
+}
+
+.txItem:last-child {
+  border-bottom: none;
+}
+
+.txItem:active {
+  background: var(--bg-tertiary);
+}
+
+.txIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.txIcon.income {
+  background: rgba(46, 204, 113, 0.15);
+  color: var(--income-color);
+}
+
+.txIcon.expense {
+  background: rgba(231, 76, 60, 0.15);
+  color: var(--expense-color);
+}
+
+.txInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.txDesc {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.txMeta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.txAmount {
+  font-size: 15px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.txAmount.income {
+  color: var(--income-color);
+}
+
+.txAmount.expense {
+  color: var(--text-primary);
+}
+
+/* Calendar View */
+.calendar {
+  background: var(--bg-secondary);
+  padding: 16px;
+}
+
+.calendarHeader {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendarDay {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px;
+  transition: background 0.2s;
+  background: var(--bg-secondary);
+}
+
+.calendarDay:hover {
+  background: var(--bg-tertiary);
+}
+
+.calendarDay.today {
+  background: var(--accent-color);
+  color: white;
+}
+
+.calendarDay.today .dayIncome,
+.calendarDay.today .dayExpense {
+  color: rgba(255,255,255,0.9);
+}
+
+.calendarDay.hasData {
+  font-weight: 600;
+}
+
+.calendarDay .dayNum {
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.calendarDay .dayIncome {
+  font-size: 9px;
+  color: var(--income-color);
+}
+
+.calendarDay .dayExpense {
+  font-size: 9px;
+  color: var(--expense-color);
+}
+
+.calendarDay.empty {
+  visibility: hidden;
+}
+
+/* Monthly View */
+.monthlyList {
+  background: var(--bg-secondary);
+}
+
+.monthItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.monthItem:hover,
+.monthItem:active {
+  background: var(--bg-tertiary);
+}
+
+.monthItem:last-child {
+  border-bottom: none;
+}
+
+.monthName {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.monthTotals {
+  text-align: right;
+}
+
+.monthTotals .income {
+  color: var(--income-color);
+  font-size: 13px;
+}
+
+.monthTotals .expense {
+  color: var(--expense-color);
+  font-size: 13px;
+}
+
+.monthTotals .balance {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 2px;
+  color: var(--text-primary);
+}
+
+/* Bottom Sheet */
+.bottomSheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--card-shadow);
+  max-height: 70vh;
+  transform: translateY(100%);
+  transition: transform 0.3s ease-out;
+  z-index: 100;
+}
+
+.bottomSheet.open {
+  transform: translateY(0);
+}
+
+.sheetHandle {
+  width: 40px;
+  height: 4px;
+  background: var(--border-color);
+  border-radius: 2px;
+  margin: 12px auto;
+}
+
+.sheetHeader {
+  padding: 0 20px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sheetTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sheetClose {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.sheetContent {
+  padding: 0;
+  max-height: calc(70vh - 80px);
+  overflow-y: auto;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-overlay);
+  z-index: 99;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Info Modal */
+.infoModal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 320px;
+  width: 90%;
+  z-index: 101;
+  box-shadow: var(--card-shadow);
+}
+
+.infoModal h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.infoModal p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.infoModal .highlight {
+  background: var(--bg-tertiary);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.infoModal button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* Empty State */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+}
+
+.empty p {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+/* Statistics Content */
+.statisticsContent {
+  padding: 0;
+}
+
+.statSection {
+  background: var(--bg-secondary);
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.statTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.statList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.statItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.statItem:last-child {
+  border-bottom: none;
+}
+
+.statName {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.statAmount {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.noData {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+}
