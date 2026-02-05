@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Moon, Sun, CreditCard, Tag, Smartphone, Palette, ChevronRight } from 'lucide-react'
+import { Moon, Sun, CreditCard, Tag, Smartphone, Palette, ChevronRight, MessageSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import Header from '../components/Header'
@@ -13,7 +13,7 @@ const colorPresets = [
 
 export default function Settings() {
   const navigate = useNavigate()
-  const { theme, toggleTheme, billingColors, setBillingColor } = useTheme()
+  const { theme, toggleTheme, billingColors, setBillingColor, showMemo, setShowMemo } = useTheme()
   const [showColorPicker, setShowColorPicker] = useState<'light' | 'dark' | null>(null)
   
   return (
@@ -31,6 +31,19 @@ export default function Settings() {
             </div>
           </div>
           <div className={`${styles.toggle} ${theme === 'dark' ? styles.active : ''}`}>
+            <div className={styles.toggleThumb} />
+          </div>
+        </div>
+        
+        <div className={styles.item} onClick={() => setShowMemo(!showMemo)}>
+          <div className={styles.itemLeft}>
+            <MessageSquare size={20} />
+            <div className={styles.itemText}>
+              <span className={styles.itemTitle}>메모 표시</span>
+              <span className={styles.itemSubtitle}>거래 내역에 메모 표시</span>
+            </div>
+          </div>
+          <div className={`${styles.toggle} ${showMemo ? styles.active : ''}`}>
             <div className={styles.toggleThumb} />
           </div>
         </div>

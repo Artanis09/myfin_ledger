@@ -42,6 +42,7 @@ type EffectiveTransaction struct {
 	InstallmentCurrent int       `json:"installment_current"`
 	IsCancelled        int64     `json:"is_cancelled"`
 	OriginalDate       time.Time `json:"original_date"`
+	Memo               *string   `json:"memo"`
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, data any) {
@@ -219,8 +220,36 @@ func (s *Server) HandleAPIGetTransaction(w http.ResponseWriter, r *http.Request)
 	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	
-	q := dbgen.New(s.DB)
-	tx, err := q.GetTransaction(r.Context(), id)
+	row := s.DB.QueryRowContext(r.Context(), `
+		SELECT t.id, t.card_id, c.name, t.category_id, COALESCE(cat.name, ''),
+			   t.transaction_date, t.description, t.amount, t.is_installment,
+			   t.installment_months, t.installment_current, t.original_amount, t.is_cancelled, t.memo
+		FROM transactions t
+		JOIN cards c ON t.card_id = c.id
+		LEFT JOIN categories cat ON t.category_id = cat.id
+		WHERE t.id = ?
+	`, id)
+	
+	var tx struct {
+		ID                 int64   `json:"id"`
+		CardID             int64   `json:"card_id"`
+		CardName           string  `json:"card_name"`
+		CategoryID         *int64  `json:"category_id"`
+		CategoryName       string  `json:"category_name"`
+		TransactionDate    string  `json:"transaction_date"`
+		Description        string  `json:"description"`
+		Amount             int64   `json:"amount"`
+		IsInstallment      int64   `json:"is_installment"`
+		InstallmentMonths  *int64  `json:"installment_months"`
+		InstallmentCurrent *int64  `json:"installment_current"`
+		OriginalAmount     *int64  `json:"original_amount"`
+		IsCancelled        int64   `json:"is_cancelled"`
+		Memo               *string `json:"memo"`
+	}
+	
+	err := row.Scan(&tx.ID, &tx.CardID, &tx.CardName, &tx.CategoryID, &tx.CategoryName,
+		&tx.TransactionDate, &tx.Description, &tx.Amount, &tx.IsInstallment,
+		&tx.InstallmentMonths, &tx.InstallmentCurrent, &tx.OriginalAmount, &tx.IsCancelled, &tx.Memo)
 	if err != nil {
 		s.writeError(w, 404, "Not found")
 		return
@@ -230,16 +259,17 @@ func (s *Server) HandleAPIGetTransaction(w http.ResponseWriter, r *http.Request)
 
 func (s *Server) HandleAPICreateTransaction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		CardID            int64  `json:"card_id"`
-		TransactionDate   string `json:"transaction_date"`
-		Amount            int64  `json:"amount"`
-		Description       string `json:"description"`
-		CategoryID        *int64 `json:"category_id"`
-		IsInstallment     int64  `json:"is_installment"`
-		InstallmentMonths *int64 `json:"installment_months"`
+		CardID            int64   `json:"card_id"`
+		TransactionDate   string  `json:"transaction_date"`
+		Amount            int64   `json:"amount"`
+		Description       string  `json:"description"`
+		CategoryID        *int64  `json:"category_id"`
+		IsInstallment     int64   `json:"is_installment"`
+		InstallmentMonths *int64  `json:"installment_months"`
 		InstallmentCurrent *int64 `json:"installment_current"`
-		OriginalAmount    *int64 `json:"original_amount"`
-		IsCancelled       int64  `json:"is_cancelled"`
+		OriginalAmount    *int64  `json:"original_amount"`
+		IsCancelled       int64   `json:"is_cancelled"`
+		Memo              *string `json:"memo"`
 	}
 	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -257,18 +287,17 @@ func (s *Server) HandleAPICreateTransaction(w http.ResponseWriter, r *http.Reque
 		categoryID = s.autoCategorize(ctx, q, req.Description)
 	}
 	
-	tx, err := q.CreateTransaction(ctx, dbgen.CreateTransactionParams{
-		CardID:            req.CardID,
-		CategoryID:        categoryID,
-		TransactionDate:   txDate,
-		Description:       req.Description,
-		Amount:            req.Amount,
-		IsInstallment:     req.IsInstallment,
-		InstallmentMonths: req.InstallmentMonths,
-		InstallmentCurrent: req.InstallmentCurrent,
-		OriginalAmount:    req.OriginalAmount,
-		IsCancelled:       req.IsCancelled,
-	})
+	// Use raw SQL to support memo field
+	result, err := s.DB.ExecContext(ctx, `
+		INSERT INTO transactions (card_id, category_id, transaction_date, description, amount, is_installment, installment_months, installment_current, original_amount, is_cancelled, memo)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.CardID, categoryID, txDate, req.Description, req.Amount, req.IsInstallment, req.InstallmentMonths, req.InstallmentCurrent, req.OriginalAmount, req.IsCancelled, req.Memo)
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
+	}
+	txID, _ := result.LastInsertId()
+	tx := map[string]interface{}{"id": txID}
 	if err != nil {
 		s.writeError(w, 500, err.Error())
 		return
@@ -281,16 +310,17 @@ func (s *Server) HandleAPIUpdateTransaction(w http.ResponseWriter, r *http.Reque
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	
 	var req struct {
-		CardID            int64  `json:"card_id"`
-		TransactionDate   string `json:"transaction_date"`
-		Amount            int64  `json:"amount"`
-		Description       string `json:"description"`
-		CategoryID        *int64 `json:"category_id"`
-		IsInstallment     int64  `json:"is_installment"`
-		InstallmentMonths *int64 `json:"installment_months"`
+		CardID            int64   `json:"card_id"`
+		TransactionDate   string  `json:"transaction_date"`
+		Amount            int64   `json:"amount"`
+		Description       string  `json:"description"`
+		CategoryID        *int64  `json:"category_id"`
+		IsInstallment     int64   `json:"is_installment"`
+		InstallmentMonths *int64  `json:"installment_months"`
 		InstallmentCurrent *int64 `json:"installment_current"`
-		OriginalAmount    *int64 `json:"original_amount"`
-		IsCancelled       int64  `json:"is_cancelled"`
+		OriginalAmount    *int64  `json:"original_amount"`
+		IsCancelled       int64   `json:"is_cancelled"`
+		Memo              *string `json:"memo"`
 	}
 	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -298,22 +328,16 @@ func (s *Server) HandleAPIUpdateTransaction(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	
-	q := dbgen.New(s.DB)
 	txDate, _ := time.Parse("2006-01-02", req.TransactionDate)
 	
-	err := q.UpdateTransaction(r.Context(), dbgen.UpdateTransactionParams{
-		ID:                id,
-		CardID:            req.CardID,
-		CategoryID:        req.CategoryID,
-		TransactionDate:   txDate,
-		Description:       req.Description,
-		Amount:            req.Amount,
-		IsInstallment:     req.IsInstallment,
-		InstallmentMonths: req.InstallmentMonths,
-		InstallmentCurrent: req.InstallmentCurrent,
-		OriginalAmount:    req.OriginalAmount,
-		IsCancelled:       req.IsCancelled,
-	})
+	_, err := s.DB.ExecContext(r.Context(), `
+		UPDATE transactions SET 
+			card_id = ?, category_id = ?, transaction_date = ?, description = ?, 
+			amount = ?, is_installment = ?, installment_months = ?, 
+			installment_current = ?, original_amount = ?, is_cancelled = ?, memo = ?
+		WHERE id = ?
+	`, req.CardID, req.CategoryID, txDate, req.Description, req.Amount, req.IsInstallment, 
+		req.InstallmentMonths, req.InstallmentCurrent, req.OriginalAmount, req.IsCancelled, req.Memo, id)
 	if err != nil {
 		s.writeError(w, 500, err.Error())
 		return
@@ -895,7 +919,7 @@ func (s *Server) getEffectiveTransactions(ctx context.Context, year, month int) 
 		rows, err := s.DB.QueryContext(ctx, `
 SELECT t.id, t.card_id, c.name, t.category_id, COALESCE(cat.name, '미분류'), 
        t.transaction_date, t.description, t.amount, t.is_installment, 
-       t.installment_months, t.is_cancelled
+       t.installment_months, t.is_cancelled, t.memo
 FROM transactions t
 JOIN cards c ON t.card_id = c.id
 LEFT JOIN categories cat ON t.category_id = cat.id
@@ -911,7 +935,7 @@ AND t.is_installment = 0
 				var txDateStr string
 				if err := rows.Scan(&et.ID, &et.CardID, &et.CardName, &et.CategoryID, &et.CategoryName,
 					&txDateStr, &et.Description, &et.Amount, &et.IsInstallment,
-					&et.InstallmentMonths, &et.IsCancelled); err == nil {
+					&et.InstallmentMonths, &et.IsCancelled, &et.Memo); err == nil {
 					et.TransactionDate = parseTime(txDateStr)
 					et.OriginalDate = et.TransactionDate
 					results = append(results, et)
@@ -924,7 +948,7 @@ AND t.is_installment = 0
 		rowsInst, err := s.DB.QueryContext(ctx, `
 SELECT t.id, t.card_id, c.name, t.category_id, COALESCE(cat.name, '미분류'), 
        t.transaction_date, t.description, t.amount, t.is_installment, 
-       t.installment_months, t.is_cancelled
+       t.installment_months, t.is_cancelled, t.memo
 FROM transactions t
 JOIN cards c ON t.card_id = c.id
 LEFT JOIN categories cat ON t.category_id = cat.id
@@ -939,7 +963,7 @@ AND t.is_installment = 1
 				var months int64
 				if err := rowsInst.Scan(&et.ID, &et.CardID, &et.CardName, &et.CategoryID, &et.CategoryName,
 					&txDateStr, &et.Description, &et.Amount, &et.IsInstallment,
-					&months, &et.IsCancelled); err == nil {
+					&months, &et.IsCancelled, &et.Memo); err == nil {
 
 					et.InstallmentMonths = &months
 					et.OriginalDate = parseTime(txDateStr)
@@ -970,7 +994,7 @@ AND t.is_installment = 1
 		rowsCan, err := s.DB.QueryContext(ctx, `
 SELECT t.id, t.card_id, c.name, t.category_id, COALESCE(cat.name, '미분류'), 
        t.transaction_date, t.description, t.amount, t.is_installment, 
-       t.installment_months, t.is_cancelled
+       t.installment_months, t.is_cancelled, t.memo
 FROM transactions t
 JOIN cards c ON t.card_id = c.id
 LEFT JOIN categories cat ON t.category_id = cat.id
@@ -985,7 +1009,7 @@ AND t.is_cancelled = 1
 				var txDateStr string
 				if err := rowsCan.Scan(&et.ID, &et.CardID, &et.CardName, &et.CategoryID, &et.CategoryName,
 					&txDateStr, &et.Description, &et.Amount, &et.IsInstallment,
-					&et.InstallmentMonths, &et.IsCancelled); err == nil {
+					&et.InstallmentMonths, &et.IsCancelled, &et.Memo); err == nil {
 					et.TransactionDate = parseTime(txDateStr)
 					et.OriginalDate = et.TransactionDate
 					et.Amount = -et.Amount // Negative for cancellation

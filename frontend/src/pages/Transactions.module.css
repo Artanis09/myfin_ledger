@@ -4,24 +4,78 @@
   background: var(--bg-primary);
 }
 
+/* 검색 바 */
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.searchIcon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+.clearSearchBtn {
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+/* 필터 바 */
 .filterBar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 10px 16px;
   background: var(--bg-secondary);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .filterBtn {
   background: var(--bg-tertiary);
   border: none;
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 6px 12px;
+  border-radius: 16px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .filterBtn.active {
@@ -29,21 +83,55 @@
   color: white;
 }
 
+.filterSelect {
+  background: var(--bg-tertiary);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  outline: none;
+  max-width: 110px;
+}
+
+.filterSelect.active {
+  background: var(--accent-color);
+  color: white;
+}
+
+.sortGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clearFilterBtn {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  color: var(--accent-color);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
 .sortSelect {
   background: transparent;
   border: none;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--accent-color);
   cursor: pointer;
   outline: none;
-  padding: 8px;
+  padding: 6px;
 }
 
+/* 요약 */
 .summary {
   display: flex;
   justify-content: space-around;
-  padding: 20px;
+  padding: 16px 20px;
   background: var(--bg-secondary);
   margin: 0;
   border-radius: 0;
@@ -59,24 +147,24 @@
   display: block;
   font-size: 12px;
   color: var(--text-tertiary);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   font-weight: 500;
 }
 
 .summaryIncome {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--income-color);
 }
 
 .summaryExpense {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--expense-color);
 }
 
 .summaryTotal {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
 }

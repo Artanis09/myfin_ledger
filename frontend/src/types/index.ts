@@ -25,6 +25,7 @@ export interface Transaction {
   installment_current: number | null
   original_amount: number | null
   is_cancelled: number
+  memo: string | null
 }
 
 export interface BillingPeriod {

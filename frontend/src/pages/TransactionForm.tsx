@@ -42,6 +42,7 @@ export default function TransactionForm() {
     installment_months: '',
     installment_current: '1',
     original_amount: '',
+    memo: '',
   })
   
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function TransactionForm() {
           installment_months: tx.installment_months ? String(tx.installment_months) : '',
           installment_current: tx.installment_current ? String(tx.installment_current) : '1',
           original_amount: tx.original_amount ? String(tx.original_amount) : '',
+          memo: tx.memo || '',
         })
       }
     } catch (err) {
@@ -196,6 +198,7 @@ export default function TransactionForm() {
       installment_months: form.is_installment ? Number(form.installment_months) : null,
       installment_current: form.is_installment ? Number(form.installment_current) : null,
       original_amount: form.is_installment ? Number(form.original_amount.replace(/,/g, '')) : null,
+      memo: form.memo || null,
     }
     
     try {
@@ -412,6 +415,17 @@ export default function TransactionForm() {
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
+          </div>
+          
+          <div className={styles.formGroup}>
+            <label>메모</label>
+            <textarea
+              placeholder="메모를 입력하세요..."
+              value={form.memo}
+              onChange={e => setForm(prev => ({ ...prev, memo: e.target.value }))}
+              rows={2}
+              className={styles.memoInput}
+            />
           </div>
           
           <div className={styles.formGroup}>

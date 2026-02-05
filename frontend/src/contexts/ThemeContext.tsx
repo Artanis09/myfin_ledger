@@ -12,6 +12,8 @@ interface ThemeContextType {
   toggleTheme: () => void
   billingColors: BillingColors
   setBillingColor: (mode: 'light' | 'dark', color: string) => void
+  showMemo: boolean
+  setShowMemo: (show: boolean) => void
 }
 
 const defaultBillingColors: BillingColors = {
@@ -40,6 +42,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return defaultBillingColors
   })
 
+  const [showMemo, setShowMemoState] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showMemo')
+    return saved !== 'false' // 기본값 true
+  })
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
@@ -60,8 +67,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setBillingColors(prev => ({ ...prev, [mode]: color }))
   }
 
+  const setShowMemo = (show: boolean) => {
+    setShowMemoState(show)
+    localStorage.setItem('showMemo', String(show))
+  }
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, billingColors, setBillingColor }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, billingColors, setBillingColor, showMemo, setShowMemo }}>
       {children}
     </ThemeContext.Provider>
   )

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Trash2 } from 'lucide-react'
+import { useTheme } from '../contexts/ThemeContext'
 import styles from './TransactionList.module.css'
 import type { Transaction } from '../types'
 
@@ -118,6 +119,7 @@ function SwipeableItem({ tx, onEdit, onDelete }: {
   onEdit: () => void
   onDelete: () => void
 }) {
+  const { showMemo } = useTheme()
   const formatMoney = (amount: number) => amount.toLocaleString() + '원'
   const time = tx.transaction_date.split('T')[1]?.slice(0, 5) || ''
   
@@ -229,6 +231,9 @@ function SwipeableItem({ tx, onEdit, onDelete }: {
                 </>
               )}
             </div>
+            {showMemo && tx.memo && (
+              <div className={styles.memo}>{tx.memo}</div>
+            )}
           </div>
         </div>
         <div className={styles.itemRight}>
