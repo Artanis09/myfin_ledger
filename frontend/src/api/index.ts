@@ -133,4 +133,76 @@ export const api = {
   deleteAllSMSLogs: () => fetchJSON<any>('/shortcut/logs', {
     method: 'DELETE',
   }),
+
+  // ========== V2 API ==========
+  v2: {
+    // Settings
+    getSettings: () => fetchJSON<any>('/v2/settings'),
+    updateSettings: (data: Record<string, string>) => fetchJSON<any>('/v2/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+    // Asset Types
+    getAssetTypes: (type?: 'expense' | 'income') => {
+      const query = type ? `?type=${type}` : ''
+      return fetchJSON<any>(`/v2/asset-types${query}`)
+    },
+    createAssetType: (data: any) => fetchJSON<any>('/v2/asset-types', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+    deleteAssetType: (id: number) => fetchJSON<any>(`/v2/asset-types/${id}`, {
+      method: 'DELETE',
+    }),
+
+    // Income Categories
+    getIncomeCategories: () => fetchJSON<any>('/v2/income-categories'),
+    createIncomeCategory: (data: any) => fetchJSON<any>('/v2/income-categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+    updateIncomeCategory: (id: number, data: any) => fetchJSON<any>(`/v2/income-categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+    deleteIncomeCategory: (id: number) => fetchJSON<any>(`/v2/income-categories/${id}`, {
+      method: 'DELETE',
+    }),
+
+    // Transactions
+    getTransactions: (year: number, month: number, type?: 'expense' | 'income') => {
+      const params = new URLSearchParams({ year: year.toString(), month: month.toString() })
+      if (type) params.set('type', type)
+      return fetchJSON<any>(`/v2/transactions?${params.toString()}`)
+    },
+    getTransaction: (id: number) => fetchJSON<any>(`/v2/transactions/${id}`),
+    createTransaction: (data: any) => fetchJSON<any>('/v2/transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+    updateTransaction: (id: number, data: any) => fetchJSON<any>(`/v2/transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+    deleteTransaction: (id: number) => fetchJSON<any>(`/v2/transactions/${id}`, {
+      method: 'DELETE',
+    }),
+
+    // Dashboard
+    getDashboard: (year: number, month: number) =>
+      fetchJSON<any>(`/v2/dashboard?year=${year}&month=${month}`),
+
+    // Statistics
+    getStatisticsLedger: (year: number, month: number) =>
+      fetchJSON<any>(`/v2/statistics/ledger?year=${year}&month=${month}`),
+    getStatisticsCard: (year: number, month: number) =>
+      fetchJSON<any>(`/v2/statistics/card?year=${year}&month=${month}`),
+
+    // Recurring
+    getRecurringSchedules: () => fetchJSON<any>('/v2/recurring'),
+    deleteRecurringSchedule: (id: number) => fetchJSON<any>(`/v2/recurring/${id}`, {
+      method: 'DELETE',
+    }),
+  },
 }

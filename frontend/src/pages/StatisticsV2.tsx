@@ -8,17 +8,30 @@ import styles from './StatisticsV2.module.css'
 
 const COLORS = ['#ff9500', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899', '#f59e0b', '#14b8a6']
 
-type StatsTab = 'ledger' | 'card'
+type StatsTab = 'ledger' | 'card' | 'recurring'
+
+interface RecurringItem {
+  category_name: string
+  description: string
+  amount: number
+  date: string
+}
+
+interface ExtendedLedgerStats extends LedgerStatistics {
+  recurring_expenses?: RecurringItem[]
+  total_recurring?: number
+  recurring_income?: RecurringItem[]
+  total_recurring_income?: number
+}
 
 function getDefaultMonth() {
-  // 현재 날짜를 기본값으로
   return new Date()
 }
 
 export default function StatisticsV2() {
   const [currentMonth, setCurrentMonth] = useState(getDefaultMonth)
   const [tab, setTab] = useState<StatsTab>('ledger')
-  const [ledgerStats, setLedgerStats] = useState<LedgerStatistics | null>(null)
+  const [ledgerStats, setLedgerStats] = useState<ExtendedLedgerStats | null>(null)
   const [cardStats, setCardStats] = useState<{ by_category: CategoryStat[], by_card: CardStat[], total: number, total_last_month: number } | null>(null)
   const [settings, setSettings] = useState<LedgerSettings | null>(null)
   const [, setLoading] = useState(true)
@@ -30,7 +43,7 @@ export default function StatisticsV2() {
       const year = currentMonth.getFullYear()
       const month = currentMonth.getMonth() + 1
       
-      if (tab === 'ledger') {
+      if (tab === 'ledger' || tab === 'recurring') {
         const [stats, settingsData] = await Promise.all([
           api.v2.getStatisticsLedger(year, month),
           api.v2.getSettings()
@@ -53,6 +66,74 @@ export default function StatisticsV2() {
   }, [loadData])
 
   const formatMoney = (amount: number) => amount.toLocaleString() + '원'
+
+  const renderRecurringStats = () => {
+    if (!ledgerStats) return null
+    const recurring_expenses = ledgerStats.recurring_expenses || []
+    const total_recurring = ledgerStats.total_recurring || 0
+    const recurring_income = ledgerStats.recurring_income || []
+    const total_recurring_income = ledgerStats.total_recurring_income || 0
+
+    return (
+      <>
+        <div className={styles.summaryCard}>
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>고정 수입</span>
+            <span className={`${styles.summaryAmount} ${styles.income}`}>+{formatMoney(total_recurring_income)}</span>
+          </div>
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>고정 지출</span>
+            <span className={`${styles.summaryAmount} ${styles.expense}`}>-{formatMoney(total_recurring)}</span>
+          </div>
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>고정 합계</span>
+            <span className={`${styles.summaryAmount} ${styles.balance}`}>{formatMoney(total_recurring_income - total_recurring)}</span>
+          </div>
+        </div>
+
+        {recurring_expenses.length > 0 && (
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>고정지출 내역 ({recurring_expenses.length}건)</h3>
+            <div className={styles.recurringList}>
+              {recurring_expenses.map((item, i) => (
+                <div key={i} className={styles.recurringItem}>
+                  <div className={styles.recurringInfo}>
+                    <span className={styles.recurringDesc}>{item.description}</span>
+                    <span className={styles.recurringMeta}>{item.category_name} · {item.date}</span>
+                  </div>
+                  <span className={styles.recurringAmount}>-{formatMoney(item.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {recurring_income.length > 0 && (
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>고정수입 내역 ({recurring_income.length}건)</h3>
+            <div className={styles.recurringList}>
+              {recurring_income.map((item, i) => (
+                <div key={i} className={styles.recurringItem}>
+                  <div className={styles.recurringInfo}>
+                    <span className={styles.recurringDesc}>{item.description}</span>
+                    <span className={styles.recurringMeta}>{item.category_name} · {item.date}</span>
+                  </div>
+                  <span className={`${styles.recurringAmount} ${styles.incomeAmount}`}>+{formatMoney(item.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {recurring_expenses.length === 0 && recurring_income.length === 0 && (
+          <div className={styles.emptyState}>
+            <p>이번 달 고정 수입/지출 내역이 없습니다.</p>
+            <p className={styles.emptyHint}>내역 등록 시 "고정지출" 또는 "고정수입"을 체크하세요.</p>
+          </div>
+        )}
+      </>
+    )
+  }
 
   const renderLedgerStats = () => {
     if (!ledgerStats) return null
@@ -212,14 +293,19 @@ export default function StatisticsV2() {
 
       <div className={styles.tabBar}>
         <button className={`${styles.tab} ${tab === 'ledger' ? styles.activeTab : ''}`} onClick={() => setTab('ledger')}>
-          가계부 통계
+          가계부
+        </button>
+        <button className={`${styles.tab} ${tab === 'recurring' ? styles.activeTab : ''}`} onClick={() => setTab('recurring')}>
+          고정지출
         </button>
         <button className={`${styles.tab} ${tab === 'card' ? styles.activeTab : ''}`} onClick={() => setTab('card')}>
-          카드 통계
+          카드
         </button>
       </div>
 
-      {tab === 'ledger' ? renderLedgerStats() : renderCardStats()}
+      {tab === 'ledger' && renderLedgerStats()}
+      {tab === 'recurring' && renderRecurringStats()}
+      {tab === 'card' && renderCardStats()}
 
       {showInfo && (
         <>
@@ -229,6 +315,10 @@ export default function StatisticsV2() {
             <p><strong>가계부 통계</strong></p>
             <div className={styles.highlight}>
               설정된 가계부 관리 기간 (매월 {settings?.ledger_period_start_day || 1}일~{settings?.ledger_period_end_day || 31}일) 기준으로 모든 수입/지출 통계를 산출합니다.
+            </div>
+            <p><strong>고정지출</strong></p>
+            <div className={styles.highlight}>
+              "고정지출" 또는 "고정수입"으로 체크된 내역만 모아서 보여줍니다.
             </div>
             <p><strong>카드 통계</strong></p>
             <div className={styles.highlight}>

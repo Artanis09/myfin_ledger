@@ -89,6 +89,32 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	mux.HandleFunc("DELETE /api/shortcut/logs/{id}", s.HandleDeleteSMSLog)
 	mux.HandleFunc("DELETE /api/shortcut/logs", s.HandleDeleteAllSMSLogs)
 
+	// V2 API routes (통합 관리 시스템)
+	mux.HandleFunc("GET /api/v2/settings", s.HandleAPIGetSettings)
+	mux.HandleFunc("PUT /api/v2/settings", s.HandleAPIUpdateSettings)
+	
+	mux.HandleFunc("GET /api/v2/asset-types", s.HandleAPIGetAssetTypes)
+	mux.HandleFunc("POST /api/v2/asset-types", s.HandleAPICreateAssetType)
+	mux.HandleFunc("DELETE /api/v2/asset-types/{id}", s.HandleAPIDeleteAssetType)
+	
+	mux.HandleFunc("GET /api/v2/income-categories", s.HandleAPIGetIncomeCategories)
+	mux.HandleFunc("POST /api/v2/income-categories", s.HandleAPICreateIncomeCategory)
+	mux.HandleFunc("PUT /api/v2/income-categories/{id}", s.HandleAPIUpdateIncomeCategory)
+	mux.HandleFunc("DELETE /api/v2/income-categories/{id}", s.HandleAPIDeleteIncomeCategory)
+	
+	mux.HandleFunc("GET /api/v2/transactions", s.HandleAPIGetTransactionsV2)
+	mux.HandleFunc("POST /api/v2/transactions", s.HandleAPICreateTransactionV2)
+	
+	mux.HandleFunc("GET /api/v2/transactions/{id}", s.HandleAPIGetTransactionV2)
+	mux.HandleFunc("PUT /api/v2/transactions/{id}", s.HandleAPIUpdateTransactionV2)
+	mux.HandleFunc("DELETE /api/v2/transactions/{id}", s.HandleAPIDeleteTransactionV2)
+	mux.HandleFunc("GET /api/v2/dashboard", s.HandleAPIDashboardV2)
+	mux.HandleFunc("GET /api/v2/statistics/ledger", s.HandleAPIStatisticsLedger)
+	mux.HandleFunc("GET /api/v2/statistics/card", s.HandleAPIStatisticsCard)
+	
+	mux.HandleFunc("GET /api/v2/recurring", s.HandleAPIGetRecurringSchedules)
+	mux.HandleFunc("DELETE /api/v2/recurring/{id}", s.HandleAPIDeleteRecurringSchedule)
+
 	// Handle trailing slash redirects for API routes
 	mux.HandleFunc("/api/shortcut/keys/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/api/shortcut/keys", http.StatusMovedPermanently)

@@ -264,3 +264,66 @@
   background: var(--modal-overlay);
   z-index: 100;
 }
+
+/* Recurring Items */
+.recurringList {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.recurringItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.recurringItem:last-child {
+  border-bottom: none;
+}
+
+.recurringInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recurringDesc {
+  font-size: 15px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.recurringMeta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.recurringAmount {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--expense-color);
+}
+
+.recurringAmount.incomeAmount {
+  color: var(--income-color);
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+.emptyState p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.emptyHint {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 8px !important;
+}

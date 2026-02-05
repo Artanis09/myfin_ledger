@@ -293,6 +293,7 @@ func (s *Server) HandleAPICreateTransactionV2(w http.ResponseWriter, r *http.Req
 		InstallmentMonths *int64  `json:"installment_months"`
 		IsCancelled       int64   `json:"is_cancelled"`
 		Memo              *string `json:"memo"`
+		IsRecurring       int64   `json:"is_recurring"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeError(w, 400, err.Error())
@@ -317,32 +318,131 @@ func (s *Server) HandleAPICreateTransactionV2(w http.ResponseWriter, r *http.Req
 		INSERT INTO transactions (
 			tx_type, asset_type_id, card_id, category_id, income_category_id,
 			transaction_date, description, amount, is_installment, installment_months,
-			is_cancelled, memo
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			is_cancelled, memo, is_recurring
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		req.TxType, req.AssetTypeID, cardID, req.CategoryID, req.IncomeCategoryID,
 		req.TransactionDate, req.Description, req.Amount, req.IsInstallment,
-		req.InstallmentMonths, req.IsCancelled, req.Memo)
+		req.InstallmentMonths, req.IsCancelled, req.Memo, req.IsRecurring)
 	if err != nil {
 		s.writeError(w, 500, err.Error())
 		return
 	}
 	id, _ := result.LastInsertId()
 
-	// 고정지출/고정수입인 경우 반복 스케줄 생성
+	s.writeJSON(w, map[string]int64{"id": id})
+}
+
+// HandleAPIGetTransactionV2 - 단일 거래 조회
+func (s *Server) HandleAPIGetTransactionV2(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+
+	row := s.DB.QueryRowContext(r.Context(), `
+		SELECT t.id, t.tx_type, t.asset_type_id, COALESCE(at.name, ''), t.card_id,
+		       t.category_id, COALESCE(cat.name, ''), t.income_category_id, COALESCE(ic.name, ''),
+		       t.transaction_date, t.description, t.amount, t.is_installment,
+		       t.installment_months, t.is_cancelled, t.memo, COALESCE(t.is_recurring, 0)
+		FROM transactions t
+		LEFT JOIN asset_types at ON t.asset_type_id = at.id
+		LEFT JOIN categories cat ON t.category_id = cat.id
+		LEFT JOIN income_categories ic ON t.income_category_id = ic.id
+		WHERE t.id = ?`, id)
+
+	var tx struct {
+		ID                 int64   `json:"id"`
+		TxType             string  `json:"tx_type"`
+		AssetTypeID        *int64  `json:"asset_type_id"`
+		AssetTypeName      string  `json:"asset_type_name"`
+		CardID             *int64  `json:"card_id"`
+		CategoryID         *int64  `json:"category_id"`
+		CategoryName       string  `json:"category_name"`
+		IncomeCategoryID   *int64  `json:"income_category_id"`
+		IncomeCategoryName string  `json:"income_category_name"`
+		TransactionDate    string  `json:"transaction_date"`
+		Description        string  `json:"description"`
+		Amount             int64   `json:"amount"`
+		IsInstallment      int64   `json:"is_installment"`
+		InstallmentMonths  *int64  `json:"installment_months"`
+		IsCancelled        int64   `json:"is_cancelled"`
+		Memo               *string `json:"memo"`
+		IsRecurring        int64   `json:"is_recurring"`
+	}
+
+	err := row.Scan(&tx.ID, &tx.TxType, &tx.AssetTypeID, &tx.AssetTypeName, &tx.CardID,
+		&tx.CategoryID, &tx.CategoryName, &tx.IncomeCategoryID, &tx.IncomeCategoryName,
+		&tx.TransactionDate, &tx.Description, &tx.Amount, &tx.IsInstallment,
+		&tx.InstallmentMonths, &tx.IsCancelled, &tx.Memo, &tx.IsRecurring)
+	if err != nil {
+		s.writeError(w, 404, "Not found")
+		return
+	}
+	s.writeJSON(w, tx)
+}
+
+// HandleAPIUpdateTransactionV2 - 거래 수정
+func (s *Server) HandleAPIUpdateTransactionV2(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+
+	var req struct {
+		TxType            string  `json:"tx_type"`
+		AssetTypeID       *int64  `json:"asset_type_id"`
+		TransactionDate   string  `json:"transaction_date"`
+		Amount            int64   `json:"amount"`
+		Description       string  `json:"description"`
+		CategoryID        *int64  `json:"category_id"`
+		IncomeCategoryID  *int64  `json:"income_category_id"`
+		IsInstallment     int64   `json:"is_installment"`
+		InstallmentMonths *int64  `json:"installment_months"`
+		IsCancelled       int64   `json:"is_cancelled"`
+		Memo              *string `json:"memo"`
+		IsRecurring       int64   `json:"is_recurring"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, 400, err.Error())
+		return
+	}
+
+	// asset_type에서 card_id 가져오기
+	var cardID *int64
 	if req.AssetTypeID != nil {
-		var isRecurring int64
-		s.DB.QueryRowContext(r.Context(), "SELECT is_recurring FROM asset_types WHERE id = ?", *req.AssetTypeID).Scan(&isRecurring)
-		if isRecurring == 1 {
-			txDate, _ := time.Parse("2006-01-02", req.TransactionDate)
-			s.DB.ExecContext(r.Context(), `
-				INSERT INTO recurring_schedules (tx_type, asset_type_id, category_id, income_category_id, description, amount, day_of_month, memo, last_generated_date)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				req.TxType, req.AssetTypeID, req.CategoryID, req.IncomeCategoryID,
-				req.Description, req.Amount, txDate.Day(), req.Memo, req.TransactionDate)
+		row := s.DB.QueryRowContext(r.Context(), "SELECT card_id FROM asset_types WHERE id = ?", *req.AssetTypeID)
+		var cid sql.NullInt64
+		if err := row.Scan(&cid); err == nil && cid.Valid {
+			cardID = &cid.Int64
 		}
 	}
 
-	s.writeJSON(w, map[string]int64{"id": id})
+	_, err := s.DB.ExecContext(r.Context(), `
+		UPDATE transactions SET
+			tx_type = ?, asset_type_id = ?, card_id = ?, category_id = ?, income_category_id = ?,
+			transaction_date = ?, description = ?, amount = ?, is_installment = ?,
+			installment_months = ?, is_cancelled = ?, memo = ?, is_recurring = ?
+		WHERE id = ?`,
+		req.TxType, req.AssetTypeID, cardID, req.CategoryID, req.IncomeCategoryID,
+		req.TransactionDate, req.Description, req.Amount, req.IsInstallment,
+		req.InstallmentMonths, req.IsCancelled, req.Memo, req.IsRecurring, id)
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
+	}
+	s.writeJSON(w, map[string]string{"status": "ok"})
+}
+
+// HandleAPIDeleteTransactionV2 - 거래 삭제
+func (s *Server) HandleAPIDeleteTransactionV2(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+
+	// sms_logs 참조 해제
+	s.DB.ExecContext(r.Context(), "UPDATE sms_logs SET transaction_id = NULL WHERE transaction_id = ?", id)
+
+	_, err := s.DB.ExecContext(r.Context(), "DELETE FROM transactions WHERE id = ?", id)
+	if err != nil {
+		s.writeError(w, 500, err.Error())
+		return
+	}
+	s.writeJSON(w, map[string]string{"status": "ok"})
 }
 
 // 가계부 관리 기간 설정 가져오기
@@ -471,17 +571,65 @@ func (s *Server) HandleAPIStatisticsLedger(w http.ResponseWriter, r *http.Reques
 		byIncomeCategory = append(byIncomeCategory, c)
 	}
 
+	// 고정지출 내역 (is_recurring = 1인 지출)
+	rows4, _ := s.DB.QueryContext(r.Context(), `
+		SELECT COALESCE(cat.name, '미분류'), t.description, t.amount, substr(t.transaction_date, 1, 10)
+		FROM transactions t
+		LEFT JOIN categories cat ON t.category_id = cat.id
+		WHERE t.tx_type = 'expense' AND t.is_cancelled = 0 AND COALESCE(t.is_recurring, 0) = 1
+		AND substr(t.transaction_date, 1, 10) >= ? AND substr(t.transaction_date, 1, 10) <= ?
+		ORDER BY t.amount DESC`, startDate, endDate)
+	defer rows4.Close()
+
+	type RecurringItem struct {
+		CategoryName string `json:"category_name"`
+		Description  string `json:"description"`
+		Amount       int64  `json:"amount"`
+		Date         string `json:"date"`
+	}
+	var recurringExpenses []RecurringItem
+	var totalRecurring int64
+	for rows4.Next() {
+		var r RecurringItem
+		rows4.Scan(&r.CategoryName, &r.Description, &r.Amount, &r.Date)
+		recurringExpenses = append(recurringExpenses, r)
+		totalRecurring += r.Amount
+	}
+
+	// 고정수입 내역
+	rows5, _ := s.DB.QueryContext(r.Context(), `
+		SELECT COALESCE(ic.name, '미분류'), t.description, t.amount, substr(t.transaction_date, 1, 10)
+		FROM transactions t
+		LEFT JOIN income_categories ic ON t.income_category_id = ic.id
+		WHERE t.tx_type = 'income' AND t.is_cancelled = 0 AND COALESCE(t.is_recurring, 0) = 1
+		AND substr(t.transaction_date, 1, 10) >= ? AND substr(t.transaction_date, 1, 10) <= ?
+		ORDER BY t.amount DESC`, startDate, endDate)
+	defer rows5.Close()
+
+	var recurringIncome []RecurringItem
+	var totalRecurringIncome int64
+	for rows5.Next() {
+		var r RecurringItem
+		rows5.Scan(&r.CategoryName, &r.Description, &r.Amount, &r.Date)
+		recurringIncome = append(recurringIncome, r)
+		totalRecurringIncome += r.Amount
+	}
+
 	s.writeJSON(w, map[string]any{
-		"year":               year,
-		"month":              month,
-		"period_start":       startDate,
-		"period_end":         endDate,
-		"total_income":       totalIncome,
-		"total_expense":      totalExpense,
-		"balance":            totalIncome - totalExpense,
-		"by_category":        byCategory,
-		"by_asset":           byAsset,
-		"by_income_category": byIncomeCategory,
+		"year":                   year,
+		"month":                  month,
+		"period_start":           startDate,
+		"period_end":             endDate,
+		"total_income":           totalIncome,
+		"total_expense":          totalExpense,
+		"balance":                totalIncome - totalExpense,
+		"by_category":            byCategory,
+		"by_asset":               byAsset,
+		"by_income_category":     byIncomeCategory,
+		"recurring_expenses":     recurringExpenses,
+		"total_recurring":        totalRecurring,
+		"recurring_income":       recurringIncome,
+		"total_recurring_income": totalRecurringIncome,
 	})
 }
 

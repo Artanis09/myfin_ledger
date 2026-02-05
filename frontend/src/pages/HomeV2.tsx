@@ -246,7 +246,7 @@ export default function HomeV2() {
               {txns.map(tx => {
                 const catName = tx.tx_type === 'income' ? tx.income_category_name : tx.category_name
                 return (
-                  <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/transactions/${tx.id}/edit`)}>
+                  <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/edit/${tx.id}`)}>
                     <div className={`${styles.categoryBadge} ${tx.tx_type === 'income' ? styles.incomeBadge : styles.expenseBadge}`}>
                       {getCategoryInitial(catName)}
                     </div>
@@ -425,7 +425,7 @@ export default function HomeV2() {
         </div>
         <div className={styles.sheetContent}>
           {getSelectedDateTxns().map(tx => (
-            <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/transactions/${tx.id}/edit`)}>
+            <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/edit/${tx.id}`)}>
               <div className={`${styles.txIcon} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
                 {tx.tx_type === 'income' ? <Plus size={18} /> : <Minus size={18} />}
               </div>
