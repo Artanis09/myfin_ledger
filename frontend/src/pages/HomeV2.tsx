@@ -1,16 +1,161 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addMonths, subMonths, format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, Minus, ListIcon, Calendar, BarChart3 } from 'lucide-react'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import Header from '../components/Header'
 import FloatingButton from '../components/FloatingButton'
 import { api } from '../api'
 import type { TransactionV2, DashboardV2Data, LedgerSettings } from '../types'
 import styles from './HomeV2.module.css'
 
+const COLORS = ['#ff9500', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899', '#f59e0b', '#14b8a6']
+
 type ViewMode = 'daily' | 'calendar' | 'monthly'
 type TabType = 'history' | 'statistics'
+
+// 통계 탭 컴포넌트
+function StatisticsTab({ data, formatAmount }: { data: DashboardV2Data | null, formatAmount: (n: number) => string }) {
+  const categoryData = useMemo(() => {
+    if (!data?.transactions) return []
+    const groups: Record<string, number> = {}
+    data.transactions
+      .filter(tx => tx.tx_type === 'expense' && !tx.is_cancelled)
+      .forEach(tx => {
+        const cat = tx.category_name || '미분류'
+        groups[cat] = (groups[cat] || 0) + tx.amount
+      })
+    return Object.entries(groups)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value]) => ({ name, value }))
+  }, [data])
+
+  const assetData = useMemo(() => {
+    if (!data?.transactions) return []
+    const groups: Record<string, number> = {}
+    data.transactions
+      .filter(tx => tx.tx_type === 'expense' && !tx.is_cancelled)
+      .forEach(tx => {
+        const asset = tx.asset_type_name || '미분류'
+        groups[asset] = (groups[asset] || 0) + tx.amount
+      })
+    return Object.entries(groups)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value]) => ({ name, value }))
+  }, [data])
+
+  const incomeData = useMemo(() => {
+    if (!data?.transactions) return []
+    const groups: Record<string, number> = {}
+    data.transactions
+      .filter(tx => tx.tx_type === 'income' && !tx.is_cancelled)
+      .forEach(tx => {
+        const cat = tx.income_category_name || '미분류'
+        groups[cat] = (groups[cat] || 0) + tx.amount
+      })
+    return Object.entries(groups)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value]) => ({ name, value }))
+  }, [data])
+
+  const totalExpense = categoryData.reduce((sum, item) => sum + item.value, 0)
+  const totalIncome = incomeData.reduce((sum, item) => sum + item.value, 0)
+
+  if (!data?.transactions?.length) {
+    return <div className={styles.empty}><BarChart3 size={32} /><p>통계 데이터가 없습니다</p></div>
+  }
+
+  return (
+    <div className={styles.statisticsContent}>
+      {/* 카테고리별 지출 */}
+      {categoryData.length > 0 && (
+        <div className={styles.statSection}>
+          <h3 className={styles.statTitle}>카테고리별 지출</h3>
+          <div className={styles.chartWrapper}>
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie
+                  data={categoryData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={70}
+                >
+                  {categoryData.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className={styles.statList}>
+            {categoryData.map((item, i) => (
+              <div key={item.name} className={styles.statItem}>
+                <div className={styles.statLeft}>
+                  <span className={styles.statDot} style={{ background: COLORS[i % COLORS.length] }} />
+                  <span className={styles.statName}>{item.name}</span>
+                  <span className={styles.statPercent}>
+                    {totalExpense > 0 ? Math.round((item.value / totalExpense) * 100) : 0}%
+                  </span>
+                </div>
+                <span className={styles.statAmount}>{formatAmount(item.value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 자산별 지출 */}
+      {assetData.length > 0 && (
+        <div className={styles.statSection}>
+          <h3 className={styles.statTitle}>자산별 지출</h3>
+          <div className={styles.statList}>
+            {assetData.map((item, i) => {
+              const percent = totalExpense > 0 ? (item.value / totalExpense) * 100 : 0
+              return (
+                <div key={item.name} className={styles.statBarItem}>
+                  <div className={styles.statBarHeader}>
+                    <span className={styles.statName}>{item.name}</span>
+                    <span className={styles.statAmount}>{formatAmount(item.value)}</span>
+                  </div>
+                  <div className={styles.statBar}>
+                    <div 
+                      className={styles.statBarFill} 
+                      style={{ width: `${percent}%`, background: COLORS[i % COLORS.length] }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 수입 카테고리 */}
+      {incomeData.length > 0 && (
+        <div className={styles.statSection}>
+          <h3 className={styles.statTitle}>수입 카테고리</h3>
+          <div className={styles.statList}>
+            {incomeData.map((item) => (
+              <div key={item.name} className={styles.statItem}>
+                <div className={styles.statLeft}>
+                  <span className={styles.statName}>{item.name}</span>
+                  <span className={styles.statPercent}>
+                    {totalIncome > 0 ? Math.round((item.value / totalIncome) * 100) : 0}%
+                  </span>
+                </div>
+                <span className={`${styles.statAmount} ${styles.incomeAmount}`}>+{formatAmount(item.value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function getDefaultMonth() {
   // 현재 날짜를 기본값으로 (다음 달이 아닌 이번 달)
@@ -74,6 +219,12 @@ export default function HomeV2() {
     return { income, expense }
   }
 
+  // 카테고리 첫 글자 추출
+  const getCategoryInitial = (name: string | null | undefined) => {
+    if (!name) return '미'
+    return name.charAt(0)
+  }
+
   const renderDailyView = () => {
     if (!data?.transactions?.length) {
       return <div className={styles.empty}><ListIcon size={32} /><p>등록된 내역이 없습니다</p></div>
@@ -92,22 +243,25 @@ export default function HomeV2() {
                   {totals.expense > 0 && <span className="expense">-{formatAmount(totals.expense)}</span>}
                 </div>
               </div>
-              {txns.map(tx => (
-                <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/transactions/${tx.id}/edit`)}>
-                  <div className={`${styles.txIcon} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
-                    {tx.tx_type === 'income' ? <Plus size={18} /> : <Minus size={18} />}
-                  </div>
-                  <div className={styles.txInfo}>
-                    <div className={styles.txDesc}>{tx.description}</div>
-                    <div className={styles.txMeta}>
-                      {tx.tx_type === 'income' ? tx.income_category_name : tx.category_name} · {tx.asset_type_name}
+              {txns.map(tx => {
+                const catName = tx.tx_type === 'income' ? tx.income_category_name : tx.category_name
+                return (
+                  <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/transactions/${tx.id}/edit`)}>
+                    <div className={`${styles.categoryBadge} ${tx.tx_type === 'income' ? styles.incomeBadge : styles.expenseBadge}`}>
+                      {getCategoryInitial(catName)}
+                    </div>
+                    <div className={styles.txInfo}>
+                      <div className={styles.txDesc}>{tx.description}</div>
+                      <div className={styles.txMeta}>
+                        {catName || '미분류'} · {tx.asset_type_name}
+                      </div>
+                    </div>
+                    <div className={`${styles.txAmount} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
+                      {tx.tx_type === 'income' ? '+' : ''}{formatAmount(tx.amount)}
                     </div>
                   </div>
-                  <div className={`${styles.txAmount} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
-                    {tx.tx_type === 'income' ? '+' : '-'}{formatAmount(tx.amount)}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )
         })}
@@ -257,62 +411,7 @@ export default function HomeV2() {
             {viewMode === 'monthly' && renderMonthlyView()}
           </>
         )}
-        {activeTab === 'statistics' && (
-          <div className={styles.statisticsContent}>
-            <div className={styles.statSection}>
-              <h3 className={styles.statTitle}>카테고리별 지출</h3>
-              {data?.transactions && data.transactions.length > 0 ? (
-                <div className={styles.statList}>
-                  {Object.entries(
-                    data.transactions
-                      .filter(tx => tx.tx_type === 'expense' && !tx.is_cancelled)
-                      .reduce((acc, tx) => {
-                        const cat = tx.category_name || '미분류'
-                        acc[cat] = (acc[cat] || 0) + tx.amount
-                        return acc
-                      }, {} as Record<string, number>)
-                  )
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([name, amount]) => (
-                      <div key={name} className={styles.statItem}>
-                        <span className={styles.statName}>{name}</span>
-                        <span className={styles.statAmount}>{formatAmount(amount)}</span>
-                      </div>
-                    ))
-                  }
-                </div>
-              ) : (
-                <p className={styles.noData}>데이터가 없습니다</p>
-              )}
-            </div>
-            <div className={styles.statSection}>
-              <h3 className={styles.statTitle}>자산별 지출</h3>
-              {data?.transactions && data.transactions.length > 0 ? (
-                <div className={styles.statList}>
-                  {Object.entries(
-                    data.transactions
-                      .filter(tx => tx.tx_type === 'expense' && !tx.is_cancelled)
-                      .reduce((acc, tx) => {
-                        const asset = tx.asset_type_name || '미분류'
-                        acc[asset] = (acc[asset] || 0) + tx.amount
-                        return acc
-                      }, {} as Record<string, number>)
-                  )
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([name, amount]) => (
-                      <div key={name} className={styles.statItem}>
-                        <span className={styles.statName}>{name}</span>
-                        <span className={styles.statAmount}>{formatAmount(amount)}</span>
-                      </div>
-                    ))
-                  }
-                </div>
-              ) : (
-                <p className={styles.noData}>데이터가 없습니다</p>
-              )}
-            </div>
-          </div>
-        )}
+        {activeTab === 'statistics' && <StatisticsTab data={data} formatAmount={formatAmount} />}
       </div>
 
       <div className={`${styles.overlay} ${selectedDate ? styles.open : ''}`} onClick={() => setSelectedDate(null)} />

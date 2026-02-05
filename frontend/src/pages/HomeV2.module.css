@@ -4,21 +4,17 @@
   padding-bottom: 80px;
 }
 
-/* Summary Card */
+/* Summary - 심플하고 플랫한 디자인 */
 .summary {
   display: flex;
-  gap: 8px;
-  padding: 16px;
+  justify-content: space-between;
+  padding: 16px 20px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
 
 .summaryItem {
-  flex: 1;
   text-align: center;
-  padding: 12px 8px;
-  background: var(--bg-tertiary);
-  border-radius: 12px;
 }
 
 .summaryLabel {
@@ -28,7 +24,7 @@
 }
 
 .summaryAmount {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -41,7 +37,7 @@
 }
 
 .summaryAmount.balance {
-  color: var(--accent-color);
+  color: var(--text-primary);
 }
 
 /* Tab Bar - 카드관리 스타일과 동일 */
@@ -79,35 +75,43 @@
   background: var(--accent-color);
 }
 
-/* View Tabs (일일/달력/월별) - Secondary style */
+/* View Tabs (일일/달력/월별) - 심플한 플랫 디자인 */
 .viewTabs {
   display: flex;
-  background: var(--bg-secondary);
+  justify-content: center;
+  gap: 24px;
   padding: 12px 16px;
-  gap: 8px;
+  background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
 
 .viewTab {
-  flex: 1;
-  padding: 10px;
+  padding: 8px 4px;
   border: none;
-  background: var(--bg-tertiary);
-  border-radius: 10px;
+  background: transparent;
   font-size: 14px;
   font-weight: 500;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.2s;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 4px;
+  position: relative;
 }
 
 .viewTab.active {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.viewTab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 0;
+  right: 0;
+  height: 2px;
   background: var(--accent-color);
-  color: white;
 }
 
 /* Content */
@@ -160,6 +164,29 @@
 
 .txItem:active {
   background: var(--bg-tertiary);
+}
+
+/* 카테고리 배지 - 카드 페이지 스타일 */
+.categoryBadge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.expenseBadge {
+  background: rgba(255, 149, 0, 0.15);
+  color: var(--accent-color);
+}
+
+.incomeBadge {
+  background: rgba(46, 204, 113, 0.15);
+  color: var(--income-color);
 }
 
 .txIcon {
@@ -482,7 +509,7 @@
 
 .statSection {
   background: var(--bg-secondary);
-  padding: 16px;
+  padding: 20px 16px;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -490,13 +517,17 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.chartWrapper {
+  margin-bottom: 16px;
 }
 
 .statList {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .statItem {
@@ -511,15 +542,60 @@
   border-bottom: none;
 }
 
+.statLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
 .statName {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.statPercent {
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 .statAmount {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
+}
+
+.incomeAmount {
+  color: var(--income-color);
+}
+
+/* 자산별 바 차트 */
+.statBarItem {
+  padding: 8px 0;
+}
+
+.statBarHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.statBar {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.statBarFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
 }
 
 .noData {

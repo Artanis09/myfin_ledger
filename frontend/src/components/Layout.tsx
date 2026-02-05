@@ -3,7 +3,7 @@ import { Home, Receipt, BarChart3, Settings } from 'lucide-react'
 import styles from './Layout.module.css'
 
 const navItems = [
-  { path: '/', icon: Home, label: '홈' },
+  { path: '/', icon: Home, label: '가계부' },
   { path: '/transactions', icon: Receipt, label: '카드' },
   { path: '/statistics', icon: BarChart3, label: '통계' },
   { path: '/settings', icon: Settings, label: '설정' },
