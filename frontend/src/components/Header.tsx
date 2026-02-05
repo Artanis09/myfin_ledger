@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Info } from 'lucide-react'
 import styles from './Header.module.css'
 
 interface HeaderProps {
@@ -7,9 +7,10 @@ interface HeaderProps {
   onPrevMonth?: () => void
   onNextMonth?: () => void
   rightAction?: React.ReactNode
+  onInfoClick?: () => void
 }
 
-export default function Header({ title, month, onPrevMonth, onNextMonth, rightAction }: HeaderProps) {
+export default function Header({ title, month, onPrevMonth, onNextMonth, rightAction, onInfoClick }: HeaderProps) {
   const formatMonth = (date: Date) => {
     return `${date.getFullYear()}년 ${date.getMonth() + 1}월`
   }
@@ -18,7 +19,14 @@ export default function Header({ title, month, onPrevMonth, onNextMonth, rightAc
     <header className={styles.header}>
       <div className={styles.safeArea} />
       <div className={styles.titleRow}>
-        <h1 className={styles.pageTitle}>{title}</h1>
+        <div className={styles.titleWithInfo}>
+          <h1 className={styles.pageTitle}>{title}</h1>
+          {onInfoClick && (
+            <button className={styles.infoBtn} onClick={onInfoClick} aria-label="정보">
+              <Info size={18} />
+            </button>
+          )}
+        </div>
         {rightAction && <div className={styles.rightAction}>{rightAction}</div>}
       </div>
       {month && (

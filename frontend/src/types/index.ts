@@ -74,3 +74,88 @@ export interface ParsedSMS {
   installment_months: number
   is_cancelled: boolean
 }
+
+// V2 Types
+export interface AssetType {
+  id: number
+  name: string
+  type: 'expense' | 'income'
+  is_card: number
+  card_id: number | null
+  is_recurring: number
+  display_order: number
+  is_system: number
+}
+
+export interface IncomeCategory {
+  id: number
+  name: string
+  display_order: number
+}
+
+export interface TransactionV2 {
+  id: number
+  tx_type: 'expense' | 'income'
+  asset_type_id: number | null
+  asset_type_name: string
+  card_id: number | null
+  category_id: number | null
+  category_name: string
+  income_category_id: number | null
+  income_category_name: string
+  transaction_date: string
+  description: string
+  amount: number
+  is_installment: number
+  installment_months: number | null
+  is_cancelled: number
+  memo: string | null
+  recurring_schedule_id: number | null
+}
+
+export interface RecurringSchedule {
+  id: number
+  tx_type: 'expense' | 'income'
+  asset_type_id: number
+  asset_type_name: string
+  category_id: number | null
+  category_name: string
+  income_category_id: number | null
+  income_category_name: string
+  description: string
+  amount: number
+  day_of_month: number
+  memo: string | null
+  is_active: number
+  last_generated_date: string | null
+}
+
+export interface DashboardV2Data {
+  year: number
+  month: number
+  period_start: string
+  period_end: string
+  total_income: number
+  total_expense: number
+  balance: number
+  transactions: TransactionV2[]
+  daily_summary: Record<string, Record<string, number>>
+}
+
+export interface LedgerSettings {
+  ledger_period_start_day: string
+  ledger_period_end_day: string
+}
+
+export interface LedgerStatistics {
+  year: number
+  month: number
+  period_start: string
+  period_end: string
+  total_income: number
+  total_expense: number
+  balance: number
+  by_category: CategoryStat[]
+  by_asset: { asset_name: string; total_amount: number; count: number }[]
+  by_income_category: CategoryStat[]
+}

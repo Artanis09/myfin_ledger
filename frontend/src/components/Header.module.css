@@ -21,11 +21,34 @@
   position: relative;
 }
 
+.titleWithInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .pageTitle {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.3px;
+}
+
+.infoBtn {
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.infoBtn:active {
+  background: var(--border-color);
 }
 
 .monthRow {

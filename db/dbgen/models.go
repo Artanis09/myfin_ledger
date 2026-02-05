@@ -17,6 +17,25 @@ type ApiKey struct {
 	CreatedAt  time.Time  `json:"created_at"`
 }
 
+type AppSetting struct {
+	ID        int64     `json:"id"`
+	Key       string    `json:"key"`
+	Value     string    `json:"value"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type AssetType struct {
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	Type         string    `json:"type"`
+	IsCard       int64     `json:"is_card"`
+	CardID       *int64    `json:"card_id"`
+	IsRecurring  int64     `json:"is_recurring"`
+	DisplayOrder int64     `json:"display_order"`
+	IsSystem     int64     `json:"is_system"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type Card struct {
 	ID              int64     `json:"id"`
 	Name            string    `json:"name"`
@@ -30,6 +49,13 @@ type Category struct {
 	Name      string    `json:"name"`
 	Keywords  string    `json:"keywords"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type IncomeCategory struct {
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	DisplayOrder int64     `json:"display_order"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Migration struct {
@@ -46,6 +72,21 @@ type MonthlyGoal struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type RecurringSchedule struct {
+	ID                int64     `json:"id"`
+	TxType            string    `json:"tx_type"`
+	AssetTypeID       int64     `json:"asset_type_id"`
+	CategoryID        *int64    `json:"category_id"`
+	IncomeCategoryID  *int64    `json:"income_category_id"`
+	Description       string    `json:"description"`
+	Amount            int64     `json:"amount"`
+	DayOfMonth        int64     `json:"day_of_month"`
+	Memo              *string   `json:"memo"`
+	IsActive          int64     `json:"is_active"`
+	LastGeneratedDate *string   `json:"last_generated_date"`
+	CreatedAt         time.Time `json:"created_at"`
+}
+
 type SmsLog struct {
 	ID                int64     `json:"id"`
 	RawText           string    `json:"raw_text"`
@@ -60,18 +101,23 @@ type SmsLog struct {
 }
 
 type Transaction struct {
-	ID                 int64     `json:"id"`
-	CardID             int64     `json:"card_id"`
-	CategoryID         *int64    `json:"category_id"`
-	TransactionDate    time.Time `json:"transaction_date"`
-	Description        string    `json:"description"`
-	Amount             int64     `json:"amount"`
-	IsInstallment      int64     `json:"is_installment"`
-	InstallmentMonths  *int64    `json:"installment_months"`
-	InstallmentCurrent *int64    `json:"installment_current"`
-	OriginalAmount     *int64    `json:"original_amount"`
-	CreatedAt          time.Time `json:"created_at"`
-	IsCancelled        int64     `json:"is_cancelled"`
+	ID                  int64     `json:"id"`
+	CardID              int64     `json:"card_id"`
+	CategoryID          *int64    `json:"category_id"`
+	TransactionDate     time.Time `json:"transaction_date"`
+	Description         string    `json:"description"`
+	Amount              int64     `json:"amount"`
+	IsInstallment       int64     `json:"is_installment"`
+	InstallmentMonths   *int64    `json:"installment_months"`
+	InstallmentCurrent  *int64    `json:"installment_current"`
+	OriginalAmount      *int64    `json:"original_amount"`
+	CreatedAt           time.Time `json:"created_at"`
+	IsCancelled         int64     `json:"is_cancelled"`
+	Memo                *string   `json:"memo"`
+	TxType              string    `json:"tx_type"`
+	AssetTypeID         *int64    `json:"asset_type_id"`
+	IncomeCategoryID    *int64    `json:"income_category_id"`
+	RecurringScheduleID *int64    `json:"recurring_schedule_id"`
 }
 
 type Visitor struct {

@@ -96,5 +96,3 @@ JOIN cards c ON t.card_id = c.id
 WHERE substr(t.transaction_date, 1, 10) >= ? AND substr(t.transaction_date, 1, 10) < ?
 GROUP BY t.card_id
 ORDER BY total_amount DESC;
-
-
