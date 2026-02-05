@@ -22,8 +22,8 @@ import (
 func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 	// Panic recovery to prevent system crash
 	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("panic in HandleShortcutMessage", "error", r)
+		if rec := recover(); rec != nil {
+			slog.Error("panic in HandleShortcutMessage", "error", rec)
 			http.Error(w, `{"error": "internal server error"}`, http.StatusInternalServerError)
 		}
 	}()
@@ -77,6 +77,9 @@ func (s *Server) HandleShortcutMessage(w http.ResponseWriter, r *http.Request) {
 
 	for _, smsText := range smsTexts {
 		result := s.processSingleSMSV2(r.Context(), queries, smsText)
+		if result == nil {
+			result = map[string]interface{}{"status": "error", "error": "processing failed"}
+		}
 		results = append(results, result)
 		if result["status"] == "saved" {
 			savedCount++
@@ -120,11 +123,15 @@ func splitMultipleSMS(text string) []string {
 }
 
 // processSingleSMSV2 processes a single SMS message using V2 API and returns the result
-func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries, smsText string) map[string]interface{} {
-	// Panic recovery for individual SMS processing
+func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries, smsText string) (result map[string]interface{}) {
+	// Panic recovery - returns error map instead of nil
 	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("panic in processSingleSMSV2", "error", r, "sms_text", smsText[:min(100, len(smsText))])
+		if rec := recover(); rec != nil {
+			slog.Error("panic in processSingleSMSV2", "error", rec, "sms_preview", smsText[:minInt(100, len(smsText))])
+			result = map[string]interface{}{
+				"status": "error",
+				"error":  "internal processing error",
+			}
 		}
 	}()
 
@@ -239,7 +246,7 @@ func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries,
 		}
 	}
 
-	// 자산 유형을 찾지 못한 경우
+	// 자산 유형을 찾지 못한 경우 기본값 사용
 	if assetTypeID == nil {
 		// 기본값: 현금지출 또는 이체
 		assetName := "현금지출"
@@ -275,9 +282,8 @@ func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries,
 	var dupCount int64
 	err = s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM transactions 
-		 WHERE amount = ? AND description = ? AND substr(transaction_date, 1, 10) = ?
-		 AND (card_id = ? OR (card_id IS NULL AND ? IS NULL))`,
-		parsed.Amount, parsed.Description, dateStr, cardID, cardID,
+		 WHERE amount = ? AND description = ? AND substr(transaction_date, 1, 10) = ?`,
+		parsed.Amount, parsed.Description, dateStr,
 	).Scan(&dupCount)
 	if err == nil && dupCount > 0 {
 		errStr := "중복 거래: 이미 동일한 거래가 존재합니다"
@@ -345,7 +351,7 @@ func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries,
 		ErrorMessage:  errorMsg,
 	})
 
-	result := map[string]interface{}{
+	result = map[string]interface{}{
 		"status":     status,
 		"sms_log_id": smsLog.ID,
 		"parsed":     buildParsedResult(parsed),
@@ -526,7 +532,7 @@ func parseInt64(s string) int64 {
 	return n
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
