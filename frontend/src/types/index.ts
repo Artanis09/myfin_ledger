@@ -112,6 +112,7 @@ export interface TransactionV2 {
   memo: string | null
   recurring_schedule_id: number | null
   is_recurring: number
+  is_auto_repeat: number
 }
 
 export interface RecurringSchedule {

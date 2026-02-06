@@ -275,7 +275,7 @@ export default function HomeV2() {
                     </div>
                     <div className={styles.txInfo}>
                       <div className={styles.txDesc}>
-                        {tx.is_recurring === 1 && <RefreshCw size={12} className={styles.recurringIcon} />}
+                        {tx.is_auto_repeat === 1 && <RefreshCw size={12} className={styles.recurringIcon} />}
                         {tx.description}
                       </div>
                       <div className={styles.txMeta}>
@@ -487,12 +487,16 @@ export default function HomeV2() {
                   {(catName || '미분류').slice(0, 4)}
                 </div>
                 <div className={styles.txInfo}>
-                  <div className={styles.txDesc}>{tx.description}</div>
+                  <div className={styles.txDesc}>
+                    {tx.is_auto_repeat === 1 && <RefreshCw size={12} className={styles.recurringIcon} />}
+                    {tx.description}
+                  </div>
                   <div className={styles.txMeta}>
                     <span className={`${styles.assetName} ${isCardAsset ? styles.assetCard : styles.assetOther}`}>
                       {tx.asset_type_name || '미분류'}
                     </span>
                     {time && <> · {time}</>}
+                    {tx.is_recurring === 1 && <span className={styles.recurringBadge}>고정</span>}
                   </div>
                 </div>
                 <div className={`${styles.txAmount} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
