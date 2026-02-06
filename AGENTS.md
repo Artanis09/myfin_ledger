@@ -1,5 +1,8 @@
 # Agent Instructions
 
+이 문서는 항상 한글로 작성하여 업데이트 합니다.
+모든 문서는 항상 한글로 작성하여 업데이트 합니다.
+작업이 완료될때마다 DB의 변경사항들을 모두 분석하여, 스키마, 관계테이블등을 DB_DESIGN.md에 상세히 업데이트 합니다
 This is a Go web application template for exe.dev.
 
 See README.md for details on the structure and components.

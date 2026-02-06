@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Moon, Sun, CreditCard, Tag, Smartphone, Palette, ChevronRight, MessageSquare, Calendar } from 'lucide-react'
+import { Moon, Sun, CreditCard, Tag, Smartphone, Palette, ChevronRight, MessageSquare, Calendar, FileText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import Header from '../components/Header'
@@ -216,6 +216,16 @@ export default function Settings() {
             <div className={styles.itemText}>
               <span className={styles.itemTitle}>아이폰 단축어 연동</span>
               <span className={styles.itemSubtitle}>자동화 설정</span>
+            </div>
+          </div>
+          <ChevronRight size={20} className={styles.arrow} />
+        </div>
+        <div className={styles.item} onClick={() => navigate('/sms-rules')}>
+          <div className={styles.itemLeft}>
+            <FileText size={20} />
+            <div className={styles.itemText}>
+              <span className={styles.itemTitle}>문자 파싱 키워드 설정</span>
+              <span className={styles.itemSubtitle}>카드/입금/출금 판별 키워드</span>
             </div>
           </div>
           <ChevronRight size={20} className={styles.arrow} />

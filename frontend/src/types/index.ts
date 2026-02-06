@@ -111,6 +111,7 @@ export interface TransactionV2 {
   is_cancelled: number
   memo: string | null
   recurring_schedule_id: number | null
+  is_recurring: number
 }
 
 export interface RecurringSchedule {

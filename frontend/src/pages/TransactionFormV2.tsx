@@ -1,12 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { format } from 'date-fns'
-import { ChevronLeft, Minus, Plus, Trash2, Sparkles } from 'lucide-react'
+import { ChevronLeft, Minus, Plus, Trash2, Sparkles, X, ClipboardPaste } from 'lucide-react'
 import { api } from '../api'
 import type { AssetType, Category, IncomeCategory } from '../types'
 import styles from './TransactionFormV2.module.css'
 
 type TxType = 'expense' | 'income'
+
+// 수입 자산 기본값
+const INCOME_ASSETS: AssetType[] = [
+  { id: -1, name: '입금', type: 'income', is_recurring: 0, display_order: 1, is_card: 0, card_id: null, is_system: 1 },
+  { id: -2, name: '현금', type: 'income', is_recurring: 0, display_order: 2, is_card: 0, card_id: null, is_system: 1 },
+]
 
 export default function TransactionFormV2() {
   const navigate = useNavigate()
@@ -23,9 +29,11 @@ export default function TransactionFormV2() {
   const [incomeCategoryId, setIncomeCategoryId] = useState<number | ''>('')
   const [memo, setMemo] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
+  const [isAutoRepeat, setIsAutoRepeat] = useState(false)
+  const [showRepeatTooltip, setShowRepeatTooltip] = useState(false)
   
   const [expenseAssets, setExpenseAssets] = useState<AssetType[]>([])
-  const [incomeAssets, setIncomeAssets] = useState<AssetType[]>([])
+  const [incomeAssets] = useState<AssetType[]>(INCOME_ASSETS)
   const [categories, setCategories] = useState<Category[]>([])
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([])
   
@@ -34,13 +42,19 @@ export default function TransactionFormV2() {
   const [originalCategoryId, setOriginalCategoryId] = useState<number | ''>('')
   const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   
-  const [showAddAsset, setShowAddAsset] = useState(false)
-  const [showAddCategory, setShowAddCategory] = useState(false)
-  const [newItemName, setNewItemName] = useState('')
+  // Modal states
+  const [showAssetModal, setShowAssetModal] = useState(false)
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(isEdit)
+  
+  // SMS 붙여넣기
+  const [smsText, setSmsText] = useState('')
+  const [showSmsModal, setShowSmsModal] = useState(false)
 
   useEffect(() => {
+    // 페이지 진입 시 스크롤을 맨 위로
+    window.scrollTo(0, 0)
     loadData()
   }, [])
 
@@ -52,19 +66,31 @@ export default function TransactionFormV2() {
 
   const loadData = async () => {
     try {
-      const [expRes, incRes, catRes, incCatRes] = await Promise.all([
+      const [expRes, catRes, incCatRes] = await Promise.all([
         api.v2.getAssetTypes('expense'),
-        api.v2.getAssetTypes('income'),
         api.getCategories(),
         api.v2.getIncomeCategories()
       ])
-      // 고정지출/고정수입 자산 유형 필터링 (is_recurring = 1인 것 제외)
       const expenseFiltered = (expRes.asset_types || []).filter((a: AssetType) => !a.is_recurring)
-      const incomeFiltered = (incRes.asset_types || []).filter((a: AssetType) => !a.is_recurring)
       setExpenseAssets(expenseFiltered)
-      setIncomeAssets(incomeFiltered)
-      setCategories(catRes.categories || [])
-      setIncomeCategories(incCatRes.income_categories || [])
+      
+      // 카테고리에 '미분류' 추가 (없으면)
+      const cats = catRes.categories || []
+      const hasUncategorized = cats.some((c: Category) => c.name === '미분류')
+      if (!hasUncategorized) {
+        setCategories([{ id: 0, name: '미분류', keywords: '' }, ...cats])
+      } else {
+        setCategories(cats)
+      }
+      
+      // 수입 카테고리에 '미분류' 추가
+      const incCats = incCatRes.income_categories || []
+      const hasIncUncategorized = incCats.some((c: IncomeCategory) => c.name === '미분류')
+      if (!hasIncUncategorized) {
+        setIncomeCategories([{ id: 0, name: '미분류', display_order: 0 }, ...incCats])
+      } else {
+        setIncomeCategories(incCats)
+      }
     } catch (err) {
       console.error('Failed to load data:', err)
     }
@@ -80,10 +106,11 @@ export default function TransactionFormV2() {
       setDescription(tx.description || '')
       const catId = tx.category_id || ''
       setCategoryId(catId)
-      setOriginalCategoryId(catId)  // 원래 카테고리 저장 (변경 감지용)
+      setOriginalCategoryId(catId)
       setIncomeCategoryId(tx.income_category_id || '')
       setMemo(tx.memo || '')
       setIsRecurring(tx.is_recurring === 1)
+      setIsAutoRepeat(tx.is_auto_repeat === 1)
     } catch (err) {
       console.error('Failed to load transaction:', err)
     } finally {
@@ -91,27 +118,16 @@ export default function TransactionFormV2() {
     }
   }
 
-  // 카테고리 변경 시 매핑 저장 및 툴팁 표시
-  const handleCategoryChange = async (value: string) => {
-    if (value === 'add') {
-      setShowAddCategory(true)
-      return
-    }
+  const handleCategoryChange = async (value: number | '') => {
+    setCategoryId(value)
     
-    const newCategoryId = value ? Number(value) : ''
-    setCategoryId(newCategoryId)
-    
-    // 사용내역이 있고, 카테고리가 변경된 경우 (수정 모드에서 원래 카테고리와 다른 경우)
-    const isNewOrChanged = !isEdit || (isEdit && newCategoryId !== originalCategoryId)
-    if (description && newCategoryId && isNewOrChanged) {
+    const isNewOrChanged = !isEdit || (isEdit && value !== originalCategoryId)
+    if (description && value && isNewOrChanged) {
       try {
-        const result = await api.v2.saveCategoryMapping(description, Number(newCategoryId))
+        const result = await api.v2.saveCategoryMapping(description, Number(value))
         if (result.success) {
-          // 툴팁 표시
           if (tooltipTimer.current) clearTimeout(tooltipTimer.current)
           setMappingTooltip({ show: true, categoryName: result.category_name })
-          
-          // 3초 후 툴팁 숨김
           tooltipTimer.current = setTimeout(() => {
             setMappingTooltip(null)
           }, 3000)
@@ -141,6 +157,7 @@ export default function TransactionFormV2() {
         is_installment: 0,
         is_cancelled: 0,
         is_recurring: isRecurring ? 1 : 0,
+        is_auto_repeat: isAutoRepeat ? 1 : 0,
       }
 
       if (isEdit && id) {
@@ -148,7 +165,6 @@ export default function TransactionFormV2() {
       } else {
         await api.v2.createTransaction(data)
       }
-      // 수정 후 이전 페이지로 돌아가기 (현재 페이지에 머무르기 위해 history back 사용)
       navigate(-1)
     } catch (err) {
       console.error('Failed to save:', err)
@@ -168,37 +184,65 @@ export default function TransactionFormV2() {
       alert('삭제에 실패했습니다')
     }
   }
-
-  const handleAddAsset = async () => {
-    if (!newItemName.trim()) return
+  
+  // SMS 붙여넣기 처리
+  const handleParseSMS = async () => {
+    if (!smsText.trim()) return
     try {
-      await api.v2.createAssetType({
-        name: newItemName,
-        type: txType,
-        is_recurring: 0,
-        display_order: 999
-      })
-      loadData()
-      setShowAddAsset(false)
-      setNewItemName('')
-    } catch (err) {
-      alert('추가에 실패했습니다')
-    }
-  }
-
-  const handleAddCategory = async () => {
-    if (!newItemName.trim()) return
-    try {
-      if (txType === 'expense') {
-        await api.createCategory({ name: newItemName, keywords: '' })
+      const result = await api.parseSMS(smsText)
+      if (result.success && result.transaction) {
+        const tx = result.transaction
+        
+        // 거래 유형 설정 (income/expense)
+        if (tx.tx_type === 'income') {
+          setTxType('income')
+        } else {
+          setTxType('expense')
+        }
+        
+        // 자산 자동 매칭
+        if (tx.asset_type_id) {
+          // 백엔드에서 자산 ID를 반환한 경우
+          if (tx.tx_type === 'income') {
+            // 수입의 경우 가상 ID (입금: -1, 현금: -2)
+            setAssetTypeId(tx.asset_type_id)
+          } else {
+            // 지출의 경우 DB 자산 ID
+            setAssetTypeId(tx.asset_type_id)
+          }
+        } else if (tx.card_name) {
+          // 카드 이름으로 자산 찾기 (fallback)
+          const matchedAsset = expenseAssets.find(a => 
+            a.name.includes(tx.card_name) || tx.card_name.includes(a.name)
+          )
+          if (matchedAsset) {
+            setAssetTypeId(matchedAsset.id)
+          }
+        }
+        
+        setAmount(new Intl.NumberFormat('ko-KR').format(tx.amount))
+        setDescription(tx.description || '')
+        
+        // 날짜 설정 (백엔드에서 yyyy-MM-dd 형식으로 반환)
+        if (tx.date) {
+          // 이미 yyyy-MM-dd 형식이면 그대로 사용, MM/dd 형식이면 변환
+          if (tx.date.includes('-') && tx.date.length === 10) {
+            setDate(tx.date)
+          } else {
+            const year = new Date().getFullYear()
+            const dateStr = `${year}-${tx.date.replace('/', '-').padStart(5, '0')}`
+            setDate(dateStr)
+          }
+        }
+        
+        setShowSmsModal(false)
+        setSmsText('')
       } else {
-        await api.v2.createIncomeCategory({ name: newItemName, display_order: 99 })
+        alert('문자 분석에 실패했습니다')
       }
-      loadData()
-      setShowAddCategory(false)
-      setNewItemName('')
     } catch (err) {
-      alert('추가에 실패했습니다')
+      console.error('Failed to parse SMS:', err)
+      alert('문자 분석에 실패했습니다')
     }
   }
 
@@ -209,6 +253,11 @@ export default function TransactionFormV2() {
   }
 
   const currentAssets = txType === 'expense' ? expenseAssets : incomeAssets
+  const currentCategories = txType === 'expense' ? categories : incomeCategories
+  const selectedAssetName = currentAssets.find(a => a.id === assetTypeId)?.name || '선택해주세요'
+  const selectedCategoryName = txType === 'expense' 
+    ? categories.find(c => c.id === categoryId)?.name || '선택해주세요'
+    : incomeCategories.find(c => c.id === incomeCategoryId)?.name || '선택해주세요'
 
   if (loading) {
     return (
@@ -230,11 +279,18 @@ export default function TransactionFormV2() {
           <ChevronLeft size={24} />
         </button>
         <span className={styles.headerTitle}>{isEdit ? '내역 수정' : '내역 등록'}</span>
-        {isEdit && (
-          <button className={styles.deleteBtn} onClick={handleDelete}>
-            <Trash2 size={20} />
-          </button>
-        )}
+        <div className={styles.headerActions}>
+          {!isEdit && (
+            <button className={styles.smsBtn} onClick={() => setShowSmsModal(true)}>
+              <ClipboardPaste size={20} />
+            </button>
+          )}
+          {isEdit && (
+            <button className={styles.deleteBtn} onClick={handleDelete}>
+              <Trash2 size={20} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className={styles.typeTabs}>
@@ -246,7 +302,7 @@ export default function TransactionFormV2() {
         </button>
         <button 
           className={`${styles.typeTab} ${styles.income} ${txType === 'income' ? styles.active : ''}`}
-          onClick={() => { setTxType('income'); setAssetTypeId(''); setIncomeCategoryId('') }}
+          onClick={() => { setTxType('income'); setAssetTypeId(-1); setIncomeCategoryId('') }}
         >
           <Plus size={18} /> 수입
         </button>
@@ -256,35 +312,58 @@ export default function TransactionFormV2() {
         <div className={styles.field}>
           <span className={styles.label}>자산</span>
           <div className={styles.assetRow}>
-            <div className={styles.selectWrapper}>
-              <select 
-                className={styles.select}
-                value={assetTypeId}
-                onChange={(e) => {
-                  if (e.target.value === 'add') {
-                    setShowAddAsset(true)
-                  } else {
-                    setAssetTypeId(e.target.value ? Number(e.target.value) : '')
-                  }
-                }}
-              >
-                <option value="">선택해주세요</option>
-                {currentAssets.map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-                <option value="add" className={styles.addOption}>+ 자산 추가</option>
-              </select>
-            </div>
+            <button 
+              className={styles.selectBtn}
+              onClick={() => setShowAssetModal(true)}
+            >
+              <span className={assetTypeId ? styles.selected : styles.placeholder}>
+                {selectedAssetName}
+              </span>
+              <span className={styles.chevron}>▼</span>
+            </button>
             <label className={styles.recurringCheck}>
               <input 
                 type="checkbox" 
                 checked={isRecurring} 
-                onChange={(e) => setIsRecurring(e.target.checked)} 
+                onChange={(e) => {
+                  setIsRecurring(e.target.checked)
+                  if (!e.target.checked) {
+                    setIsAutoRepeat(false)
+                    setShowRepeatTooltip(false)
+                  }
+                }} 
               />
               <span>고정{txType === 'expense' ? '지출' : '수입'}</span>
             </label>
           </div>
         </div>
+
+        {/* 반복 옵션 - 고정 체크 시 표시 */}
+        {isRecurring && (
+          <div className={styles.repeatSection}>
+            <label className={styles.repeatCheck}>
+              <input 
+                type="checkbox" 
+                checked={isAutoRepeat} 
+                onChange={(e) => {
+                  setIsAutoRepeat(e.target.checked)
+                  if (e.target.checked) {
+                    setShowRepeatTooltip(true)
+                    setTimeout(() => setShowRepeatTooltip(false), 5000)
+                  }
+                }} 
+              />
+              <span>매달 자동 반복</span>
+            </label>
+            {showRepeatTooltip && (
+              <div className={styles.repeatTooltip}>
+                <p>⚠️ 문자 자동등록 기능 사용 시 중복 등록될 수 있습니다.</p>
+                <p>🔄 매달 이 날짜에 자동으로 내역이 등록됩니다.</p>
+                <p>📝 내역 편집에서 언제든 반복을 해제할 수 있습니다.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className={styles.field}>
           <span className={styles.label}>날짜</span>
@@ -325,39 +404,15 @@ export default function TransactionFormV2() {
         <div className={styles.field}>
           <span className={styles.label}>카테고리</span>
           <div className={styles.categoryWrapper}>
-            <div className={styles.selectWrapper}>
-              {txType === 'expense' ? (
-                <select 
-                  className={styles.select}
-                  value={categoryId}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                >
-                  <option value="">선택해주세요</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                  <option value="add">+ 카테고리 추가</option>
-                </select>
-              ) : (
-                <select 
-                  className={styles.select}
-                  value={incomeCategoryId}
-                  onChange={(e) => {
-                    if (e.target.value === 'add') {
-                      setShowAddCategory(true)
-                    } else {
-                      setIncomeCategoryId(e.target.value ? Number(e.target.value) : '')
-                    }
-                  }}
-                >
-                  <option value="">선택해주세요</option>
-                  {incomeCategories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                  <option value="add">+ 카테고리 추가</option>
-                </select>
-              )}
-            </div>
+            <button 
+              className={styles.selectBtn}
+              onClick={() => setShowCategoryModal(true)}
+            >
+              <span className={(txType === 'expense' ? categoryId : incomeCategoryId) ? styles.selected : styles.placeholder}>
+                {selectedCategoryName}
+              </span>
+              <span className={styles.chevron}>▼</span>
+            </button>
             {mappingTooltip && mappingTooltip.show && (
               <div className={styles.mappingTooltip}>
                 <Sparkles size={14} />
@@ -381,44 +436,99 @@ export default function TransactionFormV2() {
       <button 
         className={`${styles.submitBtn} ${styles[txType]}`}
         onClick={handleSubmit}
-        disabled={submitting || !assetTypeId || !amount || !description}
+        disabled={submitting || !assetTypeId || !amount || !description || !date}
       >
         {submitting ? '저장 중...' : (isEdit ? '저장' : (txType === 'expense' ? '지출 등록' : '수입 등록'))}
       </button>
 
-      {showAddAsset && (
+      {/* Asset Modal */}
+      {showAssetModal && (
         <>
-          <div className={styles.overlay} onClick={() => setShowAddAsset(false)} />
-          <div className={styles.modal}>
-            <h3>자산 추가</h3>
-            <input 
-              type="text"
-              placeholder="자산명"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-            />
-            <div className={styles.modalBtns}>
-              <button className={styles.cancel} onClick={() => setShowAddAsset(false)}>취소</button>
-              <button className={styles.confirm} onClick={handleAddAsset}>추가</button>
+          <div className={styles.overlay} onClick={() => setShowAssetModal(false)} />
+          <div className={styles.listModal}>
+            <div className={styles.modalHeader}>
+              <h3>자산 선택</h3>
+              <button className={styles.closeBtn} onClick={() => setShowAssetModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className={styles.itemList}>
+              {currentAssets.map(a => (
+                <div 
+                  key={a.id} 
+                  className={`${styles.listItem} ${assetTypeId === a.id ? styles.active : ''}`}
+                  onClick={() => {
+                    setAssetTypeId(a.id)
+                    setShowAssetModal(false)
+                  }}
+                >
+                  <span className={styles.itemName}>{a.name}</span>
+                </div>
+              ))}
             </div>
           </div>
         </>
       )}
 
-      {showAddCategory && (
+      {/* Category Modal */}
+      {showCategoryModal && (
         <>
-          <div className={styles.overlay} onClick={() => setShowAddCategory(false)} />
-          <div className={styles.modal}>
-            <h3>카테고리 추가</h3>
-            <input 
-              type="text"
-              placeholder="카테고리명"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-            />
-            <div className={styles.modalBtns}>
-              <button className={styles.cancel} onClick={() => setShowAddCategory(false)}>취소</button>
-              <button className={styles.confirm} onClick={handleAddCategory}>추가</button>
+          <div className={styles.overlay} onClick={() => setShowCategoryModal(false)} />
+          <div className={styles.listModal}>
+            <div className={styles.modalHeader}>
+              <h3>카테고리 선택</h3>
+              <button className={styles.closeBtn} onClick={() => setShowCategoryModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className={styles.itemList}>
+              {currentCategories.map(c => (
+                <div 
+                  key={c.id} 
+                  className={`${styles.listItem} ${(txType === 'expense' ? categoryId : incomeCategoryId) === c.id ? styles.active : ''}`}
+                  onClick={() => {
+                    if (txType === 'expense') {
+                      handleCategoryChange(c.id)
+                    } else {
+                      setIncomeCategoryId(c.id)
+                    }
+                    setShowCategoryModal(false)
+                  }}
+                >
+                  <span className={styles.itemName}>{c.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      
+      {/* SMS Modal */}
+      {showSmsModal && (
+        <>
+          <div className={styles.overlay} onClick={() => setShowSmsModal(false)} />
+          <div className={styles.smsModal}>
+            <div className={styles.modalHeader}>
+              <h3>문자 붙여넣기</h3>
+              <button className={styles.closeBtn} onClick={() => setShowSmsModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className={styles.smsContent}>
+              <textarea
+                className={styles.smsTextarea}
+                placeholder="카드 결제 문자를 붙여넣으세요"
+                value={smsText}
+                onChange={(e) => setSmsText(e.target.value)}
+                rows={5}
+              />
+              <button 
+                className={styles.parseBtn}
+                onClick={handleParseSMS}
+                disabled={!smsText.trim()}
+              >
+                분석하기
+              </button>
             </div>
           </div>
         </>

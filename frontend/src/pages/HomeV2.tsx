@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addMonths, subMonths, format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Plus, Minus, ListIcon, Calendar, BarChart3 } from 'lucide-react'
+import { ListIcon, Calendar, BarChart3, RefreshCw } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import Header from '../components/Header'
 import FloatingButton from '../components/FloatingButton'
 import { api } from '../api'
-import type { TransactionV2, DashboardV2Data, LedgerSettings } from '../types'
+import type { TransactionV2, DashboardV2Data, LedgerSettings, Category } from '../types'
 import styles from './HomeV2.module.css'
 
 const COLORS = ['#ff9500', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899', '#f59e0b', '#14b8a6']
@@ -173,18 +173,25 @@ export default function HomeV2() {
   const [showInfo, setShowInfo] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [yearSelectMode, setYearSelectMode] = useState(false)
+  
+  // 필터 state
+  const [categories, setCategories] = useState<Category[]>([])
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
+  const [showRecurringOnly, setShowRecurringOnly] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const year = currentMonth.getFullYear()
       const month = currentMonth.getMonth() + 1
-      const [dashData, settingsData] = await Promise.all([
+      const [dashData, settingsData, catData] = await Promise.all([
         api.v2.getDashboard(year, month),
-        api.v2.getSettings()
+        api.v2.getSettings(),
+        api.getCategories()
       ])
       setData(dashData)
       setSettings(settingsData)
+      setCategories(catData.categories || [])
     } catch (err) {
       console.error('Failed to load:', err)
     } finally {
@@ -199,6 +206,26 @@ export default function HomeV2() {
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('ko-KR').format(amount) + '원'
   }
+
+  // 필터링된 트랜잭션
+  const filteredTransactions = useMemo(() => {
+    if (!data?.transactions) return []
+    let result = [...data.transactions]
+    
+    // 카테고리 필터
+    if (selectedCategoryId !== null) {
+      result = result.filter(tx => 
+        tx.category_id === selectedCategoryId || tx.income_category_id === selectedCategoryId
+      )
+    }
+    
+    // 고정지출/고정수입 필터
+    if (showRecurringOnly) {
+      result = result.filter(tx => tx.is_recurring === 1)
+    }
+    
+    return result
+  }, [data?.transactions, selectedCategoryId, showRecurringOnly])
 
   const groupByDate = (txns: TransactionV2[]) => {
     const groups: Record<string, TransactionV2[]> = {}
@@ -219,17 +246,11 @@ export default function HomeV2() {
     return { income, expense }
   }
 
-  // 카테고리 첫 글자 추출
-  const getCategoryInitial = (name: string | null | undefined) => {
-    if (!name) return '미'
-    return name.charAt(0)
-  }
-
   const renderDailyView = () => {
-    if (!data?.transactions?.length) {
+    if (!filteredTransactions.length) {
       return <div className={styles.empty}><ListIcon size={32} /><p>등록된 내역이 없습니다</p></div>
     }
-    const grouped = groupByDate(data.transactions)
+    const grouped = groupByDate(filteredTransactions)
     return (
       <div className={styles.transactionList}>
         {grouped.map(([date, txns]) => {
@@ -245,15 +266,24 @@ export default function HomeV2() {
               </div>
               {txns.map(tx => {
                 const catName = tx.tx_type === 'income' ? tx.income_category_name : tx.category_name
+                const isCardAsset = tx.asset_type_name?.includes('카드') || tx.card_id
+                const time = tx.transaction_date.split('T')[1]?.slice(0, 5) || ''
                 return (
                   <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/edit/${tx.id}`)}>
                     <div className={`${styles.categoryBadge} ${tx.tx_type === 'income' ? styles.incomeBadge : styles.expenseBadge}`}>
-                      {getCategoryInitial(catName)}
+                      {(catName || '미분류').slice(0, 4)}
                     </div>
                     <div className={styles.txInfo}>
-                      <div className={styles.txDesc}>{tx.description}</div>
+                      <div className={styles.txDesc}>
+                        {tx.is_recurring === 1 && <RefreshCw size={12} className={styles.recurringIcon} />}
+                        {tx.description}
+                      </div>
                       <div className={styles.txMeta}>
-                        {catName || '미분류'} · {tx.asset_type_name}
+                        <span className={`${styles.assetName} ${isCardAsset ? styles.assetCard : styles.assetOther}`}>
+                          {tx.asset_type_name || '미분류'}
+                        </span>
+                        {time && <> · {time}</>}
+                        {tx.is_recurring === 1 && <span className={styles.recurringBadge}>고정</span>}
                       </div>
                     </div>
                     <div className={`${styles.txAmount} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
@@ -381,26 +411,49 @@ export default function HomeV2() {
       </div>
 
       {activeTab === 'history' && (
-        <div className={styles.viewTabs}>
-          <button 
-            className={`${styles.viewTab} ${viewMode === 'daily' ? styles.active : ''}`}
-            onClick={() => { setViewMode('daily'); setYearSelectMode(false) }}
-          >
-            <ListIcon size={16} />일일
-          </button>
-          <button 
-            className={`${styles.viewTab} ${viewMode === 'calendar' ? styles.active : ''}`}
-            onClick={() => { setViewMode('calendar'); setYearSelectMode(false) }}
-          >
-            <Calendar size={16} />달력
-          </button>
-          <button 
-            className={`${styles.viewTab} ${viewMode === 'monthly' ? styles.active : ''}`}
-            onClick={() => { setViewMode('monthly'); setYearSelectMode(true) }}
-          >
-            <BarChart3 size={16} />월별
-          </button>
-        </div>
+        <>
+          <div className={styles.viewTabs}>
+            <button 
+              className={`${styles.viewTab} ${viewMode === 'daily' ? styles.active : ''}`}
+              onClick={() => { setViewMode('daily'); setYearSelectMode(false) }}
+            >
+              <ListIcon size={16} />일일
+            </button>
+            <button 
+              className={`${styles.viewTab} ${viewMode === 'calendar' ? styles.active : ''}`}
+              onClick={() => { setViewMode('calendar'); setYearSelectMode(false) }}
+            >
+              <Calendar size={16} />달력
+            </button>
+            <button 
+              className={`${styles.viewTab} ${viewMode === 'monthly' ? styles.active : ''}`}
+              onClick={() => { setViewMode('monthly'); setYearSelectMode(true) }}
+            >
+              <BarChart3 size={16} />월별
+            </button>
+          </div>
+          
+          {/* 필터 바 */}
+          <div className={styles.filterBar}>
+            <select
+              className={`${styles.filterSelect} ${selectedCategoryId !== null ? styles.active : ''}`}
+              value={selectedCategoryId ?? ''}
+              onChange={e => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">전체 카테고리</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+            <button
+              className={`${styles.filterBtn} ${showRecurringOnly ? styles.active : ''}`}
+              onClick={() => setShowRecurringOnly(!showRecurringOnly)}
+            >
+              <RefreshCw size={14} />
+              고정만
+            </button>
+          </div>
+        </>
       )}
 
       <div className={styles.content}>
@@ -424,22 +477,30 @@ export default function HomeV2() {
           <button className={styles.sheetClose} onClick={() => setSelectedDate(null)}>×</button>
         </div>
         <div className={styles.sheetContent}>
-          {getSelectedDateTxns().map(tx => (
-            <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/edit/${tx.id}`)}>
-              <div className={`${styles.txIcon} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
-                {tx.tx_type === 'income' ? <Plus size={18} /> : <Minus size={18} />}
-              </div>
-              <div className={styles.txInfo}>
-                <div className={styles.txDesc}>{tx.description}</div>
-                <div className={styles.txMeta}>
-                  {tx.tx_type === 'income' ? tx.income_category_name : tx.category_name}
+          {getSelectedDateTxns().map(tx => {
+            const catName = tx.tx_type === 'income' ? tx.income_category_name : tx.category_name
+            const isCardAsset = tx.asset_type_name?.includes('카드') || tx.card_id
+            const time = tx.transaction_date.split('T')[1]?.slice(0, 5) || ''
+            return (
+              <div key={tx.id} className={styles.txItem} onClick={() => navigate(`/edit/${tx.id}`)}>
+                <div className={`${styles.categoryBadge} ${tx.tx_type === 'income' ? styles.incomeBadge : styles.expenseBadge}`}>
+                  {(catName || '미분류').slice(0, 4)}
+                </div>
+                <div className={styles.txInfo}>
+                  <div className={styles.txDesc}>{tx.description}</div>
+                  <div className={styles.txMeta}>
+                    <span className={`${styles.assetName} ${isCardAsset ? styles.assetCard : styles.assetOther}`}>
+                      {tx.asset_type_name || '미분류'}
+                    </span>
+                    {time && <> · {time}</>}
+                  </div>
+                </div>
+                <div className={`${styles.txAmount} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
+                  {tx.tx_type === 'income' ? '+' : '-'}{formatAmount(tx.amount)}
                 </div>
               </div>
-              <div className={`${styles.txAmount} ${tx.tx_type === 'income' ? styles.income : styles.expense}`}>
-                {tx.tx_type === 'income' ? '+' : '-'}{formatAmount(tx.amount)}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 

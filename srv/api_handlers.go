@@ -637,8 +637,11 @@ func (s *Server) HandleAPIParseSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	result := parseSMS(req.Text)
-	s.writeJSON(w, result)
+	result := s.parseSMSWithDB(r.Context(), req.Text)
+	s.writeJSON(w, map[string]interface{}{
+		"success":     true,
+		"transaction": result,
+	})
 }
 
 func (s *Server) autoCategorize(ctx interface{ Done() <-chan struct{}; Deadline() (time.Time, bool); Err() error; Value(any) any }, q *dbgen.Queries, description string) *int64 {

@@ -8,6 +8,7 @@ import Categories from './pages/Categories'
 import Settings from './pages/Settings'
 import TransactionForm from './pages/TransactionForm'
 import Shortcut from './pages/Shortcut'
+import SMSRules from './pages/SMSRules'
 import HomeV2 from './pages/HomeV2'
 import TransactionFormV2 from './pages/TransactionFormV2'
 import StatisticsV2 from './pages/StatisticsV2'
@@ -31,6 +32,7 @@ function App() {
         <Route path="categories" element={<Categories />} />
         <Route path="settings" element={<Settings />} />
         <Route path="shortcut" element={<Shortcut />} />
+        <Route path="sms-rules" element={<SMSRules />} />
       </Route>
     </Routes>
   )

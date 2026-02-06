@@ -136,8 +136,8 @@ func (s *Server) processSingleSMSV2(ctx context.Context, queries *dbgen.Queries,
 		}
 	}()
 
-	// Parse SMS
-	parsed := parseSMS(smsText)
+	// Parse SMS with DB context
+	parsed := s.parseSMSWithDB(ctx, smsText)
 
 	// Create SMS log entry
 	var parsedCardName, parsedDescription, parsedDate *string

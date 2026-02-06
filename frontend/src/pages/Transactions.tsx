@@ -92,7 +92,7 @@ export default function Transactions() {
   }, [loadData])
   
   const handleEdit = (id: number) => {
-    navigate(`/transactions/${id}/edit`)
+    navigate(`/edit/${id}`)
   }
   
   const handleDelete = async (ids: number[]) => {

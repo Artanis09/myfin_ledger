@@ -2,14 +2,14 @@
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg-primary);
-  padding-top: env(safe-area-inset-top);
 }
 
 .header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top));
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
@@ -31,10 +31,26 @@
   color: var(--text-primary);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .deleteBtn {
   background: none;
   border: none;
   color: var(--expense-color);
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.smsBtn {
+  background: none;
+  border: none;
+  color: var(--accent-color);
   padding: 8px;
   cursor: pointer;
   display: flex;
@@ -141,31 +157,33 @@
   color: var(--text-tertiary);
 }
 
-/* Select Dropdown */
-.select {
+/* Select Button */
+.selectBtn {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
   border: none;
   font-size: 15px;
   padding: 0;
-  outline: none;
-  background: transparent;
   cursor: pointer;
-  appearance: none;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.selectBtn .selected {
   color: var(--text-primary);
 }
 
-.selectWrapper {
-  flex: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
+.selectBtn .placeholder {
+  color: var(--text-tertiary);
 }
 
-.selectWrapper::after {
-  content: '▼';
-  font-size: 10px;
+.chevron {
   color: var(--text-tertiary);
-  pointer-events: none;
+  font-size: 10px;
+  flex-shrink: 0;
 }
 
 /* Asset Row with Recurring Checkbox */
@@ -208,6 +226,54 @@
 
 .recurringCheck:has(input:checked) span {
   color: white;
+}
+
+/* Repeat Section */
+.repeatSection {
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  margin: 0 16px 16px;
+}
+
+.repeatCheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.repeatCheck input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
+.repeatCheck:has(input:checked) {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.repeatTooltip {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff8e6;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.repeatTooltip p {
+  margin: 0;
+  color: #856404;
+}
+
+.repeatTooltip p + p {
+  margin-top: 6px;
 }
 
 /* Amount Input */
@@ -310,68 +376,152 @@
   cursor: not-allowed;
 }
 
-/* Modal */
-.modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--bg-secondary);
-  border-radius: 16px;
-  padding: 24px;
-  width: 90%;
-  max-width: 320px;
-  z-index: 101;
-  box-shadow: var(--card-shadow);
-}
-
-.modal h3 {
-  font-size: 16px;
-  margin-bottom: 16px;
-  color: var(--text-primary);
-}
-
-.modal input {
-  width: 100%;
-  padding: 14px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  font-size: 15px;
-  margin-bottom: 16px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.modalBtns {
-  display: flex;
-  gap: 8px;
-}
-
-.modalBtns button {
-  flex: 1;
-  padding: 14px;
-  border: none;
-  border-radius: 10px;
-  font-weight: 500;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.modalBtns .cancel {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.modalBtns .confirm {
-  background: var(--accent-color);
-  color: white;
-}
-
+/* Overlay */
 .overlay {
   position: fixed;
   inset: 0;
   background: var(--modal-overlay);
   z-index: 100;
+}
+
+/* List Modal - 자산/카테고리 선택 */
+.listModal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-radius: 20px 20px 0 0;
+  z-index: 101;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modalHeader h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.itemList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.listItem:active {
+  background: var(--bg-tertiary);
+}
+
+.listItem.active {
+  background: var(--bg-tertiary);
+}
+
+.listItem.active .itemName {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.itemName {
+  flex: 1;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+/* SMS Modal */
+.smsModal {
+  position: fixed;
+  bottom: 60px; /* 하단 네비게이션 바 높이 */
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-radius: 20px 20px 0 0;
+  z-index: 101;
+  animation: slideUp 0.3s ease-out;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.smsContent {
+  padding: 16px 20px;
+}
+
+.smsTextarea {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  resize: none;
+  margin-bottom: 12px;
+}
+
+.smsTextarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.parseBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.parseBtn:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
 }
 
 /* Category wrapper for tooltip positioning */

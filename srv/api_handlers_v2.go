@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"srv.exe.dev/db/dbgen"
 )
 
 // ========== Settings API ==========
@@ -226,6 +228,8 @@ type TransactionV2 struct {
 	IsCancelled        int64   `json:"is_cancelled"`
 	Memo               *string `json:"memo"`
 	RecurringID        *int64  `json:"recurring_schedule_id"`
+	IsRecurring        int64   `json:"is_recurring"`
+	IsAutoRepeat       int64   `json:"is_auto_repeat"`
 }
 
 func (s *Server) HandleAPIGetTransactionsV2(w http.ResponseWriter, r *http.Request) {
@@ -250,7 +254,7 @@ func (s *Server) HandleAPIGetTransactionsV2(w http.ResponseWriter, r *http.Reque
 		SELECT t.id, t.tx_type, t.asset_type_id, COALESCE(at.name, ''), t.card_id,
 		       t.category_id, COALESCE(cat.name, ''), t.income_category_id, COALESCE(ic.name, ''),
 		       t.transaction_date, t.description, t.amount, t.is_installment,
-		       t.installment_months, t.is_cancelled, t.memo, t.recurring_schedule_id
+		       t.installment_months, t.is_cancelled, t.memo, t.recurring_schedule_id, COALESCE(t.is_recurring, 0)
 		FROM transactions t
 		LEFT JOIN asset_types at ON t.asset_type_id = at.id
 		LEFT JOIN categories cat ON t.category_id = cat.id
@@ -277,7 +281,7 @@ func (s *Server) HandleAPIGetTransactionsV2(w http.ResponseWriter, r *http.Reque
 		rows.Scan(&tx.ID, &tx.TxType, &tx.AssetTypeID, &tx.AssetTypeName, &tx.CardID,
 			&tx.CategoryID, &tx.CategoryName, &tx.IncomeCategoryID, &tx.IncomeCategoryName,
 			&tx.TransactionDate, &tx.Description, &tx.Amount, &tx.IsInstallment,
-			&tx.InstallmentMonths, &tx.IsCancelled, &tx.Memo, &tx.RecurringID)
+			&tx.InstallmentMonths, &tx.IsCancelled, &tx.Memo, &tx.RecurringID, &tx.IsRecurring)
 		txns = append(txns, tx)
 	}
 	s.writeJSON(w, map[string]any{"transactions": txns})
@@ -297,6 +301,7 @@ func (s *Server) HandleAPICreateTransactionV2(w http.ResponseWriter, r *http.Req
 		IsCancelled       int64   `json:"is_cancelled"`
 		Memo              *string `json:"memo"`
 		IsRecurring       int64   `json:"is_recurring"`
+		IsAutoRepeat      int64   `json:"is_auto_repeat"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeError(w, 400, err.Error())
@@ -321,11 +326,11 @@ func (s *Server) HandleAPICreateTransactionV2(w http.ResponseWriter, r *http.Req
 		INSERT INTO transactions (
 			tx_type, asset_type_id, card_id, category_id, income_category_id,
 			transaction_date, description, amount, is_installment, installment_months,
-			is_cancelled, memo, is_recurring
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			is_cancelled, memo, is_recurring, is_auto_repeat
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		req.TxType, req.AssetTypeID, cardID, req.CategoryID, req.IncomeCategoryID,
 		req.TransactionDate, req.Description, req.Amount, req.IsInstallment,
-		req.InstallmentMonths, req.IsCancelled, req.Memo, req.IsRecurring)
+		req.InstallmentMonths, req.IsCancelled, req.Memo, req.IsRecurring, req.IsAutoRepeat)
 	if err != nil {
 		s.writeError(w, 500, err.Error())
 		return
@@ -344,7 +349,7 @@ func (s *Server) HandleAPIGetTransactionV2(w http.ResponseWriter, r *http.Reques
 		SELECT t.id, t.tx_type, t.asset_type_id, COALESCE(at.name, ''), t.card_id,
 		       t.category_id, COALESCE(cat.name, ''), t.income_category_id, COALESCE(ic.name, ''),
 		       t.transaction_date, t.description, t.amount, t.is_installment,
-		       t.installment_months, t.is_cancelled, t.memo, COALESCE(t.is_recurring, 0)
+		       t.installment_months, t.is_cancelled, t.memo, COALESCE(t.is_recurring, 0), COALESCE(t.is_auto_repeat, 0)
 		FROM transactions t
 		LEFT JOIN asset_types at ON t.asset_type_id = at.id
 		LEFT JOIN categories cat ON t.category_id = cat.id
@@ -369,12 +374,13 @@ func (s *Server) HandleAPIGetTransactionV2(w http.ResponseWriter, r *http.Reques
 		IsCancelled        int64   `json:"is_cancelled"`
 		Memo               *string `json:"memo"`
 		IsRecurring        int64   `json:"is_recurring"`
+		IsAutoRepeat       int64   `json:"is_auto_repeat"`
 	}
 
 	err := row.Scan(&tx.ID, &tx.TxType, &tx.AssetTypeID, &tx.AssetTypeName, &tx.CardID,
 		&tx.CategoryID, &tx.CategoryName, &tx.IncomeCategoryID, &tx.IncomeCategoryName,
 		&tx.TransactionDate, &tx.Description, &tx.Amount, &tx.IsInstallment,
-		&tx.InstallmentMonths, &tx.IsCancelled, &tx.Memo, &tx.IsRecurring)
+		&tx.InstallmentMonths, &tx.IsCancelled, &tx.Memo, &tx.IsRecurring, &tx.IsAutoRepeat)
 	if err != nil {
 		s.writeError(w, 404, "Not found")
 		return
@@ -400,6 +406,7 @@ func (s *Server) HandleAPIUpdateTransactionV2(w http.ResponseWriter, r *http.Req
 		IsCancelled       int64   `json:"is_cancelled"`
 		Memo              *string `json:"memo"`
 		IsRecurring       int64   `json:"is_recurring"`
+		IsAutoRepeat      int64   `json:"is_auto_repeat"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeError(w, 400, err.Error())
@@ -420,11 +427,11 @@ func (s *Server) HandleAPIUpdateTransactionV2(w http.ResponseWriter, r *http.Req
 		UPDATE transactions SET
 			tx_type = ?, asset_type_id = ?, card_id = ?, category_id = ?, income_category_id = ?,
 			transaction_date = ?, description = ?, amount = ?, is_installment = ?,
-			installment_months = ?, is_cancelled = ?, memo = ?, is_recurring = ?
+			installment_months = ?, is_cancelled = ?, memo = ?, is_recurring = ?, is_auto_repeat = ?
 		WHERE id = ?`,
 		req.TxType, req.AssetTypeID, cardID, req.CategoryID, req.IncomeCategoryID,
 		req.TransactionDate, req.Description, req.Amount, req.IsInstallment,
-		req.InstallmentMonths, req.IsCancelled, req.Memo, req.IsRecurring, id)
+		req.InstallmentMonths, req.IsCancelled, req.Memo, req.IsRecurring, req.IsAutoRepeat, id)
 	if err != nil {
 		s.writeError(w, 500, err.Error())
 		return
@@ -706,7 +713,9 @@ func (s *Server) HandleAPIDeleteRecurringSchedule(w http.ResponseWriter, r *http
 func (s *Server) ProcessRecurringTransactions() error {
 	now := time.Now()
 	currentDate := now.Format("2006-01-02")
+	currentYearMonth := now.Format("2006-01")
 
+	// 1. recurring_schedules 테이블 기반 반복 (기존 로직)
 	rows, err := s.DB.Query(`
 		SELECT id, tx_type, asset_type_id, category_id, income_category_id,
 		       description, amount, day_of_month, memo, last_generated_date
@@ -761,6 +770,112 @@ func (s *Server) ProcessRecurringTransactions() error {
 			s.DB.Exec("UPDATE recurring_schedules SET last_generated_date = ? WHERE id = ?", currentDate, rs.ID)
 		}
 	}
+
+	// 2. transactions 테이블의 is_auto_repeat = 1인 거래 반복 (새로운 로직)
+	autoRows, err := s.DB.Query(`
+		SELECT id, tx_type, asset_type_id, card_id, category_id, income_category_id,
+		       transaction_date, description, amount, is_installment, installment_months,
+		       memo, is_recurring
+		FROM transactions
+		WHERE is_auto_repeat = 1 
+		  AND is_cancelled = 0
+		  AND parent_transaction_id IS NULL
+		  AND (last_repeat_date IS NULL OR substr(last_repeat_date, 1, 7) < ?)
+	`, currentYearMonth)
+	if err != nil {
+		return err
+	}
+	defer autoRows.Close()
+
+	for autoRows.Next() {
+		var tx struct {
+			ID               int64
+			TxType           string
+			AssetTypeID      sql.NullInt64
+			CardID           sql.NullInt64
+			CategoryID       sql.NullInt64
+			IncomeCategoryID sql.NullInt64
+			TransactionDate  string
+			Description      string
+			Amount           int64
+			IsInstallment    int64
+			InstallmentMonths sql.NullInt64
+			Memo             sql.NullString
+			IsRecurring      int64
+		}
+		err := autoRows.Scan(&tx.ID, &tx.TxType, &tx.AssetTypeID, &tx.CardID,
+			&tx.CategoryID, &tx.IncomeCategoryID, &tx.TransactionDate,
+			&tx.Description, &tx.Amount, &tx.IsInstallment, &tx.InstallmentMonths,
+			&tx.Memo, &tx.IsRecurring)
+		if err != nil {
+			continue
+		}
+
+		// 원본 거래 날짜에서 일자 추출
+		var origDay int
+		origDate, err := time.Parse("2006-01-02T15:04:05Z07:00", tx.TransactionDate)
+		if err != nil {
+			origDate, err = time.Parse("2006-01-02", tx.TransactionDate[:10])
+			if err != nil {
+				continue
+			}
+		}
+		origDay = origDate.Day()
+
+		// 이번 달의 같은 날짜로 새 거래 생성
+		monthEnd := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local)
+		day := origDay
+		if day > monthEnd.Day() {
+			day = monthEnd.Day()
+		}
+		newDate := time.Date(now.Year(), now.Month(), day, 0, 0, 0, 0, time.Local)
+
+		// 새 거래 생성 (자동 반복 해제, parent_transaction_id 설정)
+		var assetTypeID, cardID, categoryID, incomeCategoryID *int64
+		var installmentMonths *int64
+		var memo *string
+
+		if tx.AssetTypeID.Valid {
+			v := tx.AssetTypeID.Int64
+			assetTypeID = &v
+		}
+		if tx.CardID.Valid {
+			v := tx.CardID.Int64
+			cardID = &v
+		}
+		if tx.CategoryID.Valid {
+			v := tx.CategoryID.Int64
+			categoryID = &v
+		}
+		if tx.IncomeCategoryID.Valid {
+			v := tx.IncomeCategoryID.Int64
+			incomeCategoryID = &v
+		}
+		if tx.InstallmentMonths.Valid {
+			v := tx.InstallmentMonths.Int64
+			installmentMonths = &v
+		}
+		if tx.Memo.Valid {
+			memo = &tx.Memo.String
+		}
+
+		_, err = s.DB.Exec(`
+			INSERT INTO transactions (
+				tx_type, asset_type_id, card_id, category_id, income_category_id,
+				transaction_date, description, amount, is_installment, installment_months,
+				is_cancelled, memo, is_recurring, is_auto_repeat, parent_transaction_id
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?)`,
+			tx.TxType, assetTypeID, cardID, categoryID, incomeCategoryID,
+			newDate.Format("2006-01-02"), tx.Description, tx.Amount, tx.IsInstallment,
+			installmentMonths, memo, tx.IsRecurring, tx.ID)
+		if err != nil {
+			continue
+		}
+
+		// 원본 거래의 last_repeat_date 업데이트
+		s.DB.Exec(`UPDATE transactions SET last_repeat_date = ? WHERE id = ?`, currentYearMonth, tx.ID)
+	}
+
 	return nil
 }
 
@@ -805,14 +920,14 @@ func (s *Server) HandleAPIDashboardV2(w http.ResponseWriter, r *http.Request) {
 		SELECT t.id, t.tx_type, t.asset_type_id, COALESCE(at.name, ''), t.card_id,
 		       t.category_id, COALESCE(cat.name, ''), t.income_category_id, COALESCE(ic.name, ''),
 		       t.transaction_date, t.description, t.amount, t.is_installment,
-		       t.installment_months, t.is_cancelled, t.memo
+		       t.installment_months, t.is_cancelled, t.memo, COALESCE(t.is_recurring, 0)
 		FROM transactions t
 		LEFT JOIN asset_types at ON t.asset_type_id = at.id
 		LEFT JOIN categories cat ON t.category_id = cat.id
 		LEFT JOIN income_categories ic ON t.income_category_id = ic.id
 		WHERE substr(t.transaction_date, 1, 10) >= ? AND substr(t.transaction_date, 1, 10) <= ?
 		ORDER BY t.transaction_date DESC
-		LIMIT 30`, startDate, endDate)
+		LIMIT 100`, startDate, endDate)
 	defer rows.Close()
 
 	var transactions []TransactionV2
@@ -821,7 +936,7 @@ func (s *Server) HandleAPIDashboardV2(w http.ResponseWriter, r *http.Request) {
 		rows.Scan(&tx.ID, &tx.TxType, &tx.AssetTypeID, &tx.AssetTypeName, &tx.CardID,
 			&tx.CategoryID, &tx.CategoryName, &tx.IncomeCategoryID, &tx.IncomeCategoryName,
 			&tx.TransactionDate, &tx.Description, &tx.Amount, &tx.IsInstallment,
-			&tx.InstallmentMonths, &tx.IsCancelled, &tx.Memo)
+			&tx.InstallmentMonths, &tx.IsCancelled, &tx.Memo, &tx.IsRecurring)
 		transactions = append(transactions, tx)
 	}
 
@@ -998,4 +1113,55 @@ func (s *Server) HandleAPIDeleteCategoryMapping(w http.ResponseWriter, r *http.R
 	}
 	
 	s.writeJSON(w, map[string]any{"success": true})
+}
+
+// SMS Mapping Rules API
+func (s *Server) HandleAPIGetSMSMappingRules(w http.ResponseWriter, r *http.Request) {
+	queries := dbgen.New(s.DB)
+	rules, err := queries.GetSMSMappingRules(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.writeJSON(w, map[string]any{"rules": rules})
+}
+
+func (s *Server) HandleAPICreateSMSMappingRule(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RuleType    string  `json:"rule_type"`
+		Keyword     string  `json:"keyword"`
+		AssetTypeID *int64  `json:"asset_type_id"`
+		TxType      *string `json:"tx_type"`
+		Description *string `json:"description"`
+		Priority    int64   `json:"priority"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	queries := dbgen.New(s.DB)
+	rule, err := queries.CreateSMSMappingRule(r.Context(), dbgen.CreateSMSMappingRuleParams{
+		RuleType:    req.RuleType,
+		Keyword:     req.Keyword,
+		AssetTypeID: req.AssetTypeID,
+		TxType:      req.TxType,
+		Description: req.Description,
+		Priority:    req.Priority,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.writeJSON(w, rule)
+}
+
+func (s *Server) HandleAPIDeleteSMSMappingRule(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	queries := dbgen.New(s.DB)
+	if err := queries.DeleteSMSMappingRule(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.writeJSON(w, map[string]string{"status": "deleted"})
 }

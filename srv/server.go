@@ -134,6 +134,11 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 	mux.HandleFunc("POST /api/v2/category-mapping", s.HandleAPISaveCategoryMapping)
 	mux.HandleFunc("DELETE /api/v2/category-mapping/{id}", s.HandleAPIDeleteCategoryMapping)
 
+	// SMS Mapping Rules API
+	mux.HandleFunc("GET /api/v2/sms-mapping-rules", s.HandleAPIGetSMSMappingRules)
+	mux.HandleFunc("POST /api/v2/sms-mapping-rules", s.HandleAPICreateSMSMappingRule)
+	mux.HandleFunc("DELETE /api/v2/sms-mapping-rules/{id}", s.HandleAPIDeleteSMSMappingRule)
+
 	// Handle trailing slash redirects for API routes
 	mux.HandleFunc("/api/shortcut/keys/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/api/shortcut/keys", http.StatusMovedPermanently)
@@ -163,6 +168,13 @@ func (s *Server) Serve(addr string, frontendFS fs.FS) error {
 			fileServer.ServeHTTP(w, r)
 		})
 	}
+	
+	// Process recurring transactions at startup
+	go func() {
+		if err := s.ProcessRecurringTransactions(); err != nil {
+			slog.Error("failed to process recurring transactions", "error", err)
+		}
+	}()
 	
 	slog.Info("starting server", "addr", addr)
 	return http.ListenAndServe(addr, mux)

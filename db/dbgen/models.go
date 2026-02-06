@@ -51,6 +51,16 @@ type Category struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type CategoryMapping struct {
+	ID                    int64     `json:"id"`
+	Description           string    `json:"description"`
+	NormalizedDescription string    `json:"normalized_description"`
+	CategoryID            int64     `json:"category_id"`
+	UsageCount            int64     `json:"usage_count"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
 type IncomeCategory struct {
 	ID           int64     `json:"id"`
 	Name         string    `json:"name"`
@@ -100,9 +110,21 @@ type SmsLog struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+type SmsMappingRule struct {
+	ID          int64     `json:"id"`
+	RuleType    string    `json:"rule_type"`
+	Keyword     string    `json:"keyword"`
+	AssetTypeID *int64    `json:"asset_type_id"`
+	TxType      *string   `json:"tx_type"`
+	Description *string   `json:"description"`
+	Priority    int64     `json:"priority"`
+	IsActive    int64     `json:"is_active"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type Transaction struct {
 	ID                  int64     `json:"id"`
-	CardID              int64     `json:"card_id"`
+	CardID              *int64    `json:"card_id"`
 	CategoryID          *int64    `json:"category_id"`
 	TransactionDate     time.Time `json:"transaction_date"`
 	Description         string    `json:"description"`
@@ -118,6 +140,7 @@ type Transaction struct {
 	AssetTypeID         *int64    `json:"asset_type_id"`
 	IncomeCategoryID    *int64    `json:"income_category_id"`
 	RecurringScheduleID *int64    `json:"recurring_schedule_id"`
+	IsRecurring         int64     `json:"is_recurring"`
 }
 
 type Visitor struct {

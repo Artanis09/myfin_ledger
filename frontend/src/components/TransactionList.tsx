@@ -122,6 +122,8 @@ function SwipeableItem({ tx, onEdit, onDelete }: {
   const { showMemo } = useTheme()
   const formatMoney = (amount: number) => amount.toLocaleString() + '원'
   const time = tx.transaction_date.split('T')[1]?.slice(0, 5) || ''
+  const isCard = !!tx.card_name
+  const assetName = tx.card_name || '현금'
   
   const [swiped, setSwiped] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -210,8 +212,8 @@ function SwipeableItem({ tx, onEdit, onDelete }: {
         onTouchEnd={handleTouchEnd}
       >
         <div className={styles.itemLeft}>
-          <div className={styles.categoryIcon}>
-            {tx.category_name ? tx.category_name[0] : '기'}
+          <div className={`${styles.categoryIcon} ${styles.expense}`}>
+            {(tx.category_name || '기타').slice(0, 4)}
           </div>
           <div className={styles.itemInfo}>
             <div className={styles.descriptionRow}>
@@ -221,15 +223,9 @@ function SwipeableItem({ tx, onEdit, onDelete }: {
               </span>
             </div>
             <div className={styles.meta}>
-              <span className={styles.categoryName}>{tx.category_name || '기타'}</span>
+              <span className={`${styles.assetName} ${isCard ? styles.card : styles.other}`}>{assetName}</span>
               <span className={styles.dot}>•</span>
               <span className={styles.time}>{time}</span>
-              {tx.card_name && (
-                <>
-                  <span className={styles.dot}>•</span>
-                  <span className={styles.cardInfo}>{tx.card_name}</span>
-                </>
-              )}
             </div>
             {showMemo && tx.memo && (
               <div className={styles.memo}>{tx.memo}</div>

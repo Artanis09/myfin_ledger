@@ -62,11 +62,11 @@ INSERT INTO transactions (
     card_id, category_id, transaction_date, description, amount,
     is_installment, installment_months, installment_current, original_amount, is_cancelled
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, card_id, category_id, transaction_date, description, amount, is_installment, installment_months, installment_current, original_amount, created_at, is_cancelled, memo, tx_type, asset_type_id, income_category_id, recurring_schedule_id
+RETURNING id, card_id, category_id, transaction_date, description, amount, is_installment, installment_months, installment_current, original_amount, created_at, is_cancelled, memo, tx_type, asset_type_id, income_category_id, recurring_schedule_id, is_recurring
 `
 
 type CreateTransactionParams struct {
-	CardID             int64     `json:"card_id"`
+	CardID             *int64    `json:"card_id"`
 	CategoryID         *int64    `json:"category_id"`
 	TransactionDate    time.Time `json:"transaction_date"`
 	Description        string    `json:"description"`
@@ -110,6 +110,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.AssetTypeID,
 		&i.IncomeCategoryID,
 		&i.RecurringScheduleID,
+		&i.IsRecurring,
 	)
 	return i, err
 }
@@ -207,7 +208,7 @@ func (q *Queries) GetAllCategories(ctx context.Context) ([]Category, error) {
 }
 
 const getAllTransactions = `-- name: GetAllTransactions :many
-SELECT t.id, t.card_id, t.category_id, t.transaction_date, t.description, t.amount, t.is_installment, t.installment_months, t.installment_current, t.original_amount, t.created_at, t.is_cancelled, t.memo, t.tx_type, t.asset_type_id, t.income_category_id, t.recurring_schedule_id, c.name as card_name, cat.name as category_name
+SELECT t.id, t.card_id, t.category_id, t.transaction_date, t.description, t.amount, t.is_installment, t.installment_months, t.installment_current, t.original_amount, t.created_at, t.is_cancelled, t.memo, t.tx_type, t.asset_type_id, t.income_category_id, t.recurring_schedule_id, t.is_recurring, c.name as card_name, cat.name as category_name
 FROM transactions t
 JOIN cards c ON t.card_id = c.id
 LEFT JOIN categories cat ON t.category_id = cat.id
@@ -216,7 +217,7 @@ ORDER BY t.transaction_date DESC
 
 type GetAllTransactionsRow struct {
 	ID                  int64     `json:"id"`
-	CardID              int64     `json:"card_id"`
+	CardID              *int64    `json:"card_id"`
 	CategoryID          *int64    `json:"category_id"`
 	TransactionDate     time.Time `json:"transaction_date"`
 	Description         string    `json:"description"`
@@ -232,6 +233,7 @@ type GetAllTransactionsRow struct {
 	AssetTypeID         *int64    `json:"asset_type_id"`
 	IncomeCategoryID    *int64    `json:"income_category_id"`
 	RecurringScheduleID *int64    `json:"recurring_schedule_id"`
+	IsRecurring         int64     `json:"is_recurring"`
 	CardName            string    `json:"card_name"`
 	CategoryName        *string   `json:"category_name"`
 }
@@ -263,6 +265,7 @@ func (q *Queries) GetAllTransactions(ctx context.Context) ([]GetAllTransactionsR
 			&i.AssetTypeID,
 			&i.IncomeCategoryID,
 			&i.RecurringScheduleID,
+			&i.IsRecurring,
 			&i.CardName,
 			&i.CategoryName,
 		); err != nil {
@@ -414,7 +417,7 @@ func (q *Queries) GetSumByCategory(ctx context.Context, arg GetSumByCategoryPara
 }
 
 const getTransaction = `-- name: GetTransaction :one
-SELECT id, card_id, category_id, transaction_date, description, amount, is_installment, installment_months, installment_current, original_amount, created_at, is_cancelled, memo, tx_type, asset_type_id, income_category_id, recurring_schedule_id FROM transactions WHERE id = ?
+SELECT id, card_id, category_id, transaction_date, description, amount, is_installment, installment_months, installment_current, original_amount, created_at, is_cancelled, memo, tx_type, asset_type_id, income_category_id, recurring_schedule_id, is_recurring FROM transactions WHERE id = ?
 `
 
 func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, error) {
@@ -438,12 +441,13 @@ func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, er
 		&i.AssetTypeID,
 		&i.IncomeCategoryID,
 		&i.RecurringScheduleID,
+		&i.IsRecurring,
 	)
 	return i, err
 }
 
 const getTransactionsByCardAndDateRange = `-- name: GetTransactionsByCardAndDateRange :many
-SELECT t.id, t.card_id, t.category_id, t.transaction_date, t.description, t.amount, t.is_installment, t.installment_months, t.installment_current, t.original_amount, t.created_at, t.is_cancelled, t.memo, t.tx_type, t.asset_type_id, t.income_category_id, t.recurring_schedule_id, c.name as card_name, cat.name as category_name
+SELECT t.id, t.card_id, t.category_id, t.transaction_date, t.description, t.amount, t.is_installment, t.installment_months, t.installment_current, t.original_amount, t.created_at, t.is_cancelled, t.memo, t.tx_type, t.asset_type_id, t.income_category_id, t.recurring_schedule_id, t.is_recurring, c.name as card_name, cat.name as category_name
 FROM transactions t
 JOIN cards c ON t.card_id = c.id
 LEFT JOIN categories cat ON t.category_id = cat.id
@@ -452,14 +456,14 @@ ORDER BY t.transaction_date DESC
 `
 
 type GetTransactionsByCardAndDateRangeParams struct {
-	CardID            int64     `json:"card_id"`
+	CardID            *int64    `json:"card_id"`
 	TransactionDate   time.Time `json:"transaction_date"`
 	TransactionDate_2 time.Time `json:"transaction_date_2"`
 }
 
 type GetTransactionsByCardAndDateRangeRow struct {
 	ID                  int64     `json:"id"`
-	CardID              int64     `json:"card_id"`
+	CardID              *int64    `json:"card_id"`
 	CategoryID          *int64    `json:"category_id"`
 	TransactionDate     time.Time `json:"transaction_date"`
 	Description         string    `json:"description"`
@@ -475,6 +479,7 @@ type GetTransactionsByCardAndDateRangeRow struct {
 	AssetTypeID         *int64    `json:"asset_type_id"`
 	IncomeCategoryID    *int64    `json:"income_category_id"`
 	RecurringScheduleID *int64    `json:"recurring_schedule_id"`
+	IsRecurring         int64     `json:"is_recurring"`
 	CardName            string    `json:"card_name"`
 	CategoryName        *string   `json:"category_name"`
 }
@@ -506,6 +511,7 @@ func (q *Queries) GetTransactionsByCardAndDateRange(ctx context.Context, arg Get
 			&i.AssetTypeID,
 			&i.IncomeCategoryID,
 			&i.RecurringScheduleID,
+			&i.IsRecurring,
 			&i.CardName,
 			&i.CategoryName,
 		); err != nil {
@@ -523,7 +529,7 @@ func (q *Queries) GetTransactionsByCardAndDateRange(ctx context.Context, arg Get
 }
 
 const getTransactionsByDateRange = `-- name: GetTransactionsByDateRange :many
-SELECT t.id, t.card_id, t.category_id, t.transaction_date, t.description, t.amount, t.is_installment, t.installment_months, t.installment_current, t.original_amount, t.created_at, t.is_cancelled, t.memo, t.tx_type, t.asset_type_id, t.income_category_id, t.recurring_schedule_id, c.name as card_name, cat.name as category_name
+SELECT t.id, t.card_id, t.category_id, t.transaction_date, t.description, t.amount, t.is_installment, t.installment_months, t.installment_current, t.original_amount, t.created_at, t.is_cancelled, t.memo, t.tx_type, t.asset_type_id, t.income_category_id, t.recurring_schedule_id, t.is_recurring, c.name as card_name, cat.name as category_name
 FROM transactions t
 JOIN cards c ON t.card_id = c.id
 LEFT JOIN categories cat ON t.category_id = cat.id
@@ -538,7 +544,7 @@ type GetTransactionsByDateRangeParams struct {
 
 type GetTransactionsByDateRangeRow struct {
 	ID                  int64     `json:"id"`
-	CardID              int64     `json:"card_id"`
+	CardID              *int64    `json:"card_id"`
 	CategoryID          *int64    `json:"category_id"`
 	TransactionDate     time.Time `json:"transaction_date"`
 	Description         string    `json:"description"`
@@ -554,6 +560,7 @@ type GetTransactionsByDateRangeRow struct {
 	AssetTypeID         *int64    `json:"asset_type_id"`
 	IncomeCategoryID    *int64    `json:"income_category_id"`
 	RecurringScheduleID *int64    `json:"recurring_schedule_id"`
+	IsRecurring         int64     `json:"is_recurring"`
 	CardName            string    `json:"card_name"`
 	CategoryName        *string   `json:"category_name"`
 }
@@ -585,6 +592,7 @@ func (q *Queries) GetTransactionsByDateRange(ctx context.Context, arg GetTransac
 			&i.AssetTypeID,
 			&i.IncomeCategoryID,
 			&i.RecurringScheduleID,
+			&i.IsRecurring,
 			&i.CardName,
 			&i.CategoryName,
 		); err != nil {
@@ -646,7 +654,7 @@ WHERE id = ?
 `
 
 type UpdateTransactionParams struct {
-	CardID             int64     `json:"card_id"`
+	CardID             *int64    `json:"card_id"`
 	CategoryID         *int64    `json:"category_id"`
 	TransactionDate    time.Time `json:"transaction_date"`
 	Description        string    `json:"description"`

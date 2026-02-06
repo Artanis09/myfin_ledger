@@ -12,6 +12,10 @@
   --border-color: #e8e4de;
   --income-color: #2ecc71;
   --expense-color: #e74c3c;
+  --expense-text-color: #3b82f6;
+  --income-text-color: #ef4444;
+  --asset-card-color: #059669;
+  --asset-other-color: #6b7280;
   --accent-color: #ff9500;
   --accent-secondary: #ff6b35;
   --success-color: #2ecc71;
@@ -50,6 +54,10 @@
   --border-color: #3a3a3c;
   --income-color: #4cd964;
   --expense-color: #ff6b6b;
+  --expense-text-color: #60a5fa;
+  --income-text-color: #f87171;
+  --asset-card-color: #34d399;
+  --asset-other-color: #9ca3af;
   --accent-color: #0a84ff;
   --accent-secondary: #5e5ce6;
   --success-color: #4cd964;

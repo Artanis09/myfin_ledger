@@ -219,5 +219,16 @@ export const api = {
     deleteCategoryMapping: (id: number) => fetchJSON<any>(`/v2/category-mapping/${id}`, {
       method: 'DELETE',
     }),
+
+    // SMS Mapping Rules
+    getSMSMappingRules: () => fetchJSON<any>('/v2/sms-mapping-rules'),
+    createSMSMappingRule: (rule: { rule_type: string; keyword: string; tx_type?: string; priority: number; description?: string }) =>
+      fetchJSON<any>('/v2/sms-mapping-rules', {
+        method: 'POST',
+        body: JSON.stringify(rule),
+      }),
+    deleteSMSMappingRule: (id: number) => fetchJSON<any>(`/v2/sms-mapping-rules/${id}`, {
+      method: 'DELETE',
+    }),
   },
 }
